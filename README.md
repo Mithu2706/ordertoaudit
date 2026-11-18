@@ -4,9 +4,9 @@ Integrated order-to-audit management system for a small South Indian
 packaged-snacks manufacturer:
 **Sales → Order Verification → GST Invoice → Dispatch → Inventory → Production → Costing → Monthly Audit Reports.**
 
-> Status: **Phase 3 complete**: architecture, schema, authentication, roles,
-> master data, audit trail, unit conversion, stock ledger and purchases. The application is being built phase by phase;
-> see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#6-implementation-plan-phases).
+> Status: **Phase 4 complete**: authentication and roles, master data, audit
+> trail, stock ledger, purchases, BOMs and the production engine with variance
+> and run costing. The application is being built phase by phase; see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#6-implementation-plan-phases).
 
 ## Stack
 
@@ -20,6 +20,7 @@ ReportLab / openpyxl · Pytest · Docker Compose.
 * [Database schema & ER diagram](docs/DATABASE.md)
 * [API & permissions](docs/API.md)
 * [Inventory engine](docs/INVENTORY.md)
+* [BOM & production engine](docs/PRODUCTION.md) (includes benchmark steps 1–3 and costing)
 
 ## Backend quick start (development)
 
@@ -36,9 +37,12 @@ set a real `JWT_SECRET_KEY` first):
 ```powershell
 cd backend
 .venv\Scripts\alembic upgrade head
-.venv\Scripts\python -m app.seed
+.venv\Scripts\python -m app.seed --benchmark
 .venv\Scripts\uvicorn app.main:app --reload
 ```
+
+`--benchmark` also loads the benchmark master data, BOM and opening stock.
+Without it, only reference data and demo users are seeded.
 
 Interactive API docs: <http://localhost:8000/api/docs>. Use **Authorize**
 with a demo account.

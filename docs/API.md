@@ -65,6 +65,9 @@ Full schema: `/api/docs`.
 | `POST /inventory/adjustments` (ADJUSTMENT) | | ✔ | | | |
 | `GET /purchases` | | ✔ | ✔ | ✔ | ✔ |
 | `POST/PUT /purchases`, `/post`, `/cancel` | | ✔ | ✔ | | |
+| `GET /boms`, `GET /production-runs` (incl. `alerts_only`) | | ✔ | ✔ | ✔ | ✔ |
+| `POST /boms`, `/boms/{id}/activate` | | ✔ | ✔ | | |
+| `POST /production-runs`, `PUT …/actuals`, `POST …/post`, `…/cancel` | | ✔ | ✔ | | |
 
 `tests/test_permissions.py` checks **every cell** of this table: each role
 against each endpoint, 80 cases in total.
