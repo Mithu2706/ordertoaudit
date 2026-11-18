@@ -1,7 +1,7 @@
 """Sales orders: salesman drafts and submits; admin verifies stock, then approves or rejects.
 
     DRAFT --submit--> SUBMITTED --approve--> APPROVED --(phase 6: invoice, dispatch)-->
-                        |   \--reject--> REJECTED
+                        |   +--reject--> REJECTED
     DRAFT / SUBMITTED / APPROVED --cancel--> CANCELLED
 
 * Prices come from the product master when the order is created; salesmen cannot set them.
@@ -38,7 +38,7 @@ def _scope(stmt, actor: User):
 def get_order(db: Session, order_id: int, actor: User, lock: bool = False) -> SalesOrder:
     stmt = _scope(select(SalesOrder).where(SalesOrder.id == order_id), actor)
     if lock:
-        stmt = stmt.with_for_update()
+        stmt = stmt.with_for_update().execution_options(populate_existing=True)
     order = db.scalars(stmt).first()
     if order is None:
         raise NotFoundError(f"Sales order {order_id} not found")

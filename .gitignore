@@ -24,3 +24,6 @@ Thumbs.db
 .idea/
 .claude/
 *.tsbuildinfo
+
+# local PostgreSQL data (scripts/dev_postgres.py)
+.pgdata/

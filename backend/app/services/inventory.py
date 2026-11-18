@@ -62,7 +62,7 @@ class Balance:
 
 def lock_item(db: Session, item_id: int) -> Item:
     # of=Item: lock only the items row (the eager-loaded unit join must not be locked).
-    item = db.scalars(select(Item).where(Item.id == item_id).with_for_update(of=Item)).first()
+    item = db.scalars(select(Item).where(Item.id == item_id).with_for_update(of=Item).execution_options(populate_existing=True)).first()
     if item is None:
         raise NotFoundError(f"Item {item_id} not found")
     return item

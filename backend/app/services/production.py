@@ -40,7 +40,7 @@ ZERO = Decimal("0")
 def _get(db: Session, run_id: int, lock: bool = False) -> ProductionRun:
     stmt = select(ProductionRun).where(ProductionRun.id == run_id)
     if lock:
-        stmt = stmt.with_for_update()
+        stmt = stmt.with_for_update().execution_options(populate_existing=True)
     run = db.scalars(stmt).first()
     if run is None:
         raise NotFoundError(f"Production run {run_id} not found")

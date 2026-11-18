@@ -4,13 +4,15 @@ Integrated order-to-audit management system for a small South Indian
 packaged-snacks manufacturer:
 **Sales → Order Verification → GST Invoice → Dispatch → Inventory → Production → Costing → Monthly Audit Reports.**
 
-> Status: **Phase 8 complete**. The backend covers the whole order-to-audit flow:
+> Status: **Phase 9 complete**. The backend covers the whole order-to-audit flow:
 > authentication and roles, master data, audit trail, stock ledger, purchases,
 > BOMs and production (variance, costing), sales orders with stock
 > reservation, GST invoices (PDF), dispatch, credit notes, payments and
 > receivables, plus 15 reports with CSV/Excel/PDF export and product costing.
 > Benchmark steps 1–9 are verified. Phase 8 added the React frontend with
-> role-specific screens for every role. See
+> role-specific screens for every role. Phase 9 added an end-to-end HTTP benchmark test and
+> PostgreSQL concurrency tests, and fixed the bugs they found. All 247 tests pass on PostgreSQL
+> ([docs/TESTING.md](docs/TESTING.md)). See
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#6-implementation-plan-phases).
 
 ## Stack
@@ -28,6 +30,7 @@ ReportLab / openpyxl · Pytest · Docker Compose.
 * [BOM & production engine](docs/PRODUCTION.md) (includes benchmark steps 1–3 and costing)
 * [Sales, GST billing, dispatch & receivables](docs/BILLING.md) (benchmark steps 4–7)
 * [Reports, exports & costing](docs/REPORTS.md) (benchmark steps 8–9)
+* [Testing: end-to-end, concurrency, PostgreSQL](docs/TESTING.md)
 
 ## Backend quick start (development)
 
@@ -55,7 +58,10 @@ Interactive API docs: <http://localhost:8000/api/docs>. Use **Authorize**
 with a demo account.
 
 Tests use in-memory SQLite by default. To run the same suite against
-PostgreSQL, set `TEST_DATABASE_URL`.
+PostgreSQL, set `TEST_DATABASE_URL`. That also runs the concurrency tests, which
+need PostgreSQL. If you have no PostgreSQL, `python scripts\dev_postgres.py` starts a
+throwaway local server (no Docker needed) and prints both URLs. See
+[docs/TESTING.md](docs/TESTING.md).
 
 ### Re-run the benchmark scenario
 

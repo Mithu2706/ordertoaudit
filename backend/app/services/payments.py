@@ -31,7 +31,7 @@ def open_invoices(db: Session, customer_id: int, lock: bool = False) -> list[tup
     stmt = (select(Invoice).where(Invoice.customer_id == customer_id, Invoice.status != InvoiceStatus.CANCELLED)
             .order_by(Invoice.invoice_date, Invoice.id))
     if lock:
-        stmt = stmt.with_for_update()
+        stmt = stmt.with_for_update().execution_options(populate_existing=True)
     out = []
     for inv in db.scalars(stmt):
         bal = invoice_balance(db, inv)

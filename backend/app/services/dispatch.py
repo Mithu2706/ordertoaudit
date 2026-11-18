@@ -26,7 +26,7 @@ DISPATCHABLE = (OrderStatus.INVOICED, OrderStatus.PARTIALLY_DISPATCHED)
 def create_dispatch(db: Session, *, order_id: int, lines: dict[int, Decimal] | None, dispatch_date: date | None,
                     vehicle_no: str | None, transporter: str | None, remarks: str | None,
                     actor: User, ip: str | None = None) -> Dispatch:
-    order = db.scalars(select(SalesOrder).where(SalesOrder.id == order_id).with_for_update()).first()
+    order = db.scalars(select(SalesOrder).where(SalesOrder.id == order_id).with_for_update().execution_options(populate_existing=True)).first()
     if order is None:
         raise NotFoundError(f"Sales order {order_id} not found")
     if order.status not in DISPATCHABLE:

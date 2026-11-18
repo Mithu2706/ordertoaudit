@@ -27,7 +27,7 @@ STOCKABLE_PURCHASE_TYPES = {ItemType.RAW_MATERIAL, ItemType.PACKAGING}
 def _get(db: Session, purchase_id: int, lock: bool = False) -> Purchase:
     stmt = select(Purchase).where(Purchase.id == purchase_id)
     if lock:
-        stmt = stmt.with_for_update()
+        stmt = stmt.with_for_update().execution_options(populate_existing=True)
     p = db.scalars(stmt).first()
     if p is None:
         raise NotFoundError(f"Purchase {purchase_id} not found")

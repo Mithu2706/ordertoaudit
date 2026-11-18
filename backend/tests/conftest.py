@@ -6,6 +6,7 @@ which is the authoritative target.
 """
 import os
 from collections.abc import Callable, Iterator
+from pathlib import Path
 
 import pytest
 
@@ -13,7 +14,7 @@ os.environ.setdefault("JWT_SECRET_KEY", "test-only-secret")
 os.environ.setdefault("BCRYPT_ROUNDS", "4")  # fast hashing in tests only
 
 from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import create_engine, event, select  # noqa: E402
+from sqlalchemy import create_engine, event, select, text  # noqa: E402
 from sqlalchemy.engine import Engine  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
@@ -26,7 +27,36 @@ from app.models.enums import RoleCode  # noqa: E402
 from app.seed.reference_data import seed_reference  # noqa: E402
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "sqlite://")
+IS_POSTGRES = TEST_DATABASE_URL.startswith("postgresql")
 TEST_PASSWORD = "Passw0rd!"
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+
+postgres_only = pytest.mark.skipif(not IS_POSTGRES, reason="needs PostgreSQL (set TEST_DATABASE_URL)")
+
+
+def reset_postgres_schema(eng: Engine) -> None:
+    with eng.begin() as conn:
+        conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+        conn.execute(text("CREATE SCHEMA public"))
+
+
+def migrate_postgres(url: str) -> None:
+    """Build the schema with the real Alembic migrations (incl. the ledger's append-only trigger),
+    so a PostgreSQL run also proves the migrations match the models."""
+    from alembic import command
+    from alembic.config import Config
+
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    previous = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = url
+    try:
+        command.upgrade(cfg, "head")
+    finally:
+        if previous is None:
+            os.environ.pop("DATABASE_URL", None)
+        else:
+            os.environ["DATABASE_URL"] = previous
 
 
 def _build_engine() -> Engine:
@@ -44,13 +74,20 @@ def _build_engine() -> Engine:
 @pytest.fixture(scope="session")
 def engine() -> Iterator[Engine]:
     eng = _build_engine()
-    Base.metadata.drop_all(eng)
-    Base.metadata.create_all(eng)
+    if IS_POSTGRES:
+        reset_postgres_schema(eng)
+        migrate_postgres(TEST_DATABASE_URL)
+    else:
+        Base.metadata.drop_all(eng)
+        Base.metadata.create_all(eng)
     with Session(eng) as s:  # reference data shared by all tests (committed once)
         seed_reference(s)
         s.commit()
     yield eng
-    Base.metadata.drop_all(eng)
+    if IS_POSTGRES:
+        reset_postgres_schema(eng)
+    else:
+        Base.metadata.drop_all(eng)
     eng.dispose()
 
 

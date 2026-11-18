@@ -39,7 +39,7 @@ ZERO = Decimal("0.00")
 def get_invoice(db: Session, invoice_id: int, lock: bool = False) -> Invoice:
     stmt = select(Invoice).where(Invoice.id == invoice_id)
     if lock:
-        stmt = stmt.with_for_update()
+        stmt = stmt.with_for_update().execution_options(populate_existing=True)
     inv = db.scalars(stmt).first()
     if inv is None:
         raise NotFoundError(f"Invoice {invoice_id} not found")
@@ -61,7 +61,7 @@ def invoice_balance(db: Session, invoice: Invoice) -> Decimal:
 
 
 def create_invoice(db: Session, order_id: int, invoice_date: date | None, actor: User, ip: str | None = None) -> Invoice:
-    order = db.scalars(select(SalesOrder).where(SalesOrder.id == order_id).with_for_update()).first()
+    order = db.scalars(select(SalesOrder).where(SalesOrder.id == order_id).with_for_update().execution_options(populate_existing=True)).first()
     if order is None:
         raise NotFoundError(f"Sales order {order_id} not found")
     if order.status != OrderStatus.APPROVED:
