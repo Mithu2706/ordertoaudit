@@ -35,7 +35,7 @@ from app.models.enums import (
     OrderStatus,
     RoleCode,
     SupplyType,
-    UnitDimension,
+
 )
 
 EXPECTED_TABLES = {
@@ -48,18 +48,13 @@ EXPECTED_TABLES = {
 
 @pytest.fixture
 def ref(db: Session) -> dict:
-    """Minimal reference rows needed by the constraint tests."""
-    role = Role(code=RoleCode.ADMIN, name="Admin")
-    db.add(role)
+    """Rows needed by the constraint tests (roles, states, units come from the seed)."""
+    role = db.scalars(select(Role).where(Role.code == RoleCode.ADMIN)).one()
+    user = User(username="schema_admin", full_name="Admin", password_hash="x", role_id=role.id)
+    db.add(user)
     db.flush()
-    user = User(username="admin", full_name="Admin", password_hash="x", role_id=role.id)
-    tn = State(code="33", name="Tamil Nadu")
-    kg = Unit(code="KG", name="Kilogram", dimension=UnitDimension.MASS)
-    g = Unit(code="G", name="Gram", dimension=UnitDimension.MASS)
-    pkt = Unit(code="PKT", name="Packet", dimension=UnitDimension.COUNT)
-    ctn = Unit(code="CTN", name="Carton", dimension=UnitDimension.COUNT)
-    db.add_all([user, tn, kg, g, pkt, ctn])
-    db.flush()
+    tn = db.get(State, "33")
+    kg, g, pkt, ctn = (db.scalars(select(Unit).where(Unit.code == c)).one() for c in ("KG", "G", "PKT", "CTN"))
     flour = Item(code="RM-FLOUR", name="Flour", item_type=ItemType.RAW_MATERIAL, base_unit_id=kg.id)
     fg = Item(code="FG-MUR200", name="Murukku 200 g", item_type=ItemType.FINISHED_GOOD, base_unit_id=pkt.id)
     db.add_all([flour, fg])
@@ -130,7 +125,7 @@ def test_only_one_active_bom_per_product(db, ref):
 
 
 def test_unit_conversion_global_and_item_specific(db, ref):
-    db.add(UnitConversion(from_unit_id=ref["kg"].id, to_unit_id=ref["g"].id, factor=Decimal("1000")))
+    # KG->G (global) is already seeded; an item-specific CTN->PKT is allowed alongside it.
     db.add(UnitConversion(from_unit_id=ref["ctn"].id, to_unit_id=ref["pkt"].id, factor=Decimal("20"),
                           item_id=ref["fg"].id))
     db.flush()

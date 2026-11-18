@@ -5,27 +5,33 @@ Set TEST_DATABASE_URL to a PostgreSQL URL to run the same suite against PostgreS
 which is the authoritative target.
 """
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 import pytest
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session
-from sqlalchemy.pool import StaticPool
 
 os.environ.setdefault("JWT_SECRET_KEY", "test-only-secret")
+os.environ.setdefault("BCRYPT_ROUNDS", "4")  # fast hashing in tests only
 
-from sqlalchemy import create_engine, event  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import create_engine, event, select  # noqa: E402
+from sqlalchemy.engine import Engine  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
+from sqlalchemy.pool import StaticPool  # noqa: E402
 
-from app.models import Base  # noqa: E402
+from app.core.database import get_db  # noqa: E402
+from app.core.security import create_access_token, hash_password  # noqa: E402
+from app.main import app  # noqa: E402
+from app.models import Base, Role, User  # noqa: E402
+from app.models.enums import RoleCode  # noqa: E402
+from app.seed.reference_data import seed_reference  # noqa: E402
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "sqlite://")
+TEST_PASSWORD = "Passw0rd!"
 
 
 def _build_engine() -> Engine:
     if TEST_DATABASE_URL.startswith("sqlite"):
-        engine = create_engine(
-            TEST_DATABASE_URL, connect_args={"check_same_thread": False}, poolclass=StaticPool
-        )
+        engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False}, poolclass=StaticPool)
 
         @event.listens_for(engine, "connect")
         def _fk_on(dbapi_conn, _record):
@@ -40,6 +46,9 @@ def engine() -> Iterator[Engine]:
     eng = _build_engine()
     Base.metadata.drop_all(eng)
     Base.metadata.create_all(eng)
+    with Session(eng) as s:  # reference data shared by all tests (committed once)
+        seed_reference(s)
+        s.commit()
     yield eng
     Base.metadata.drop_all(eng)
     eng.dispose()
@@ -50,10 +59,64 @@ def db(engine: Engine) -> Iterator[Session]:
     """Each test runs in a transaction that is rolled back afterwards."""
     connection = engine.connect()
     trans = connection.begin()
-    session = Session(bind=connection, join_transaction_mode="create_savepoint")
+    session = Session(bind=connection, join_transaction_mode="create_savepoint", expire_on_commit=False)
     try:
         yield session
     finally:
         session.close()
         trans.rollback()
         connection.close()
+
+
+@pytest.fixture
+def client(db: Session) -> Iterator[TestClient]:
+    """API client sharing the test's session, so everything rolls back after the test."""
+
+    def _override() -> Iterator[Session]:
+        # Each request gets its own SAVEPOINT: a failing request rolls back only its own
+        # changes (like production's per-request transaction), not the test's fixtures.
+        nested = db.begin_nested()
+        try:
+            yield db
+            db.flush()
+            nested.commit()
+        except Exception:
+            nested.rollback()
+            raise
+
+    app.dependency_overrides[get_db] = _override
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def make_user(db: Session) -> Callable[..., User]:
+    counter = {"n": 0}
+
+    def _make(role: RoleCode, username: str | None = None, active: bool = True) -> User:
+        counter["n"] += 1
+        role_row = db.scalars(select(Role).where(Role.code == role)).one()
+        user = User(
+            username=username or f"{role.value.lower()}_{counter['n']}",
+            full_name=f"Test {role.value.title()} {counter['n']}",
+            password_hash=hash_password(TEST_PASSWORD),
+            role_id=role_row.id,
+            is_active=active,
+        )
+        db.add(user)
+        db.flush()
+        db.refresh(user)
+        return user
+
+    return _make
+
+
+def auth_headers(user: User) -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_access_token(user.id, user.role.code.value)}"}
+
+
+@pytest.fixture
+def as_role(make_user) -> Callable[[RoleCode], dict[str, str]]:
+    """`headers = as_role(RoleCode.ADMIN)` -> auth headers for a fresh user of that role."""
+    return lambda role: auth_headers(make_user(role))
