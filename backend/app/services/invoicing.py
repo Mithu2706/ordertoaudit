@@ -118,9 +118,11 @@ def create_invoice(db: Session, order_id: int, invoice_date: date | None, actor:
     return invoice
 
 
-def list_invoices(db: Session, *, customer_id=None, status=None, date_from=None, date_to=None, q=None,
+def list_invoices(db: Session, *, customer_id=None, order_id=None, status=None, date_from=None, date_to=None, q=None,
                   limit: int = 50, offset: int = 0):
     stmt = select(Invoice).order_by(Invoice.invoice_date.desc(), Invoice.id.desc())
+    if order_id is not None:
+        stmt = stmt.where(Invoice.order_id == order_id)
     if customer_id is not None:
         stmt = stmt.where(Invoice.customer_id == customer_id)
     if status is not None:

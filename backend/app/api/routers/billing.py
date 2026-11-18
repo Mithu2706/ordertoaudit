@@ -100,12 +100,12 @@ def payment_out(db: Session, p: Payment) -> PaymentOut:
 # ---- invoices ----------------------------------------------------------------------------
 @invoices.get("", response_model=Page[InvoiceSummaryOut])
 def list_invoices(
-    db: DbSession, _: Reader, customer_id: int | None = None,
+    db: DbSession, _: Reader, customer_id: int | None = None, order_id: int | None = None,
     status_: Annotated[InvoiceStatus | None, Query(alias="status")] = None,
     date_from: date | None = None, date_to: date | None = None, q: Annotated[str | None, Query(max_length=64)] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50, offset: Annotated[int, Query(ge=0)] = 0,
 ):
-    rows, total = inv_svc.list_invoices(db, customer_id=customer_id, status=status_, date_from=date_from,
+    rows, total = inv_svc.list_invoices(db, customer_id=customer_id, order_id=order_id, status=status_, date_from=date_from,
                                         date_to=date_to, q=q, limit=limit, offset=offset)
     items = [InvoiceSummaryOut(id=i.id, invoice_no=i.invoice_no, invoice_date=i.invoice_date, customer_id=i.customer_id,
                                customer_name=i.customer_name, supply_type=i.supply_type, taxable_amount=i.taxable_amount,
