@@ -4,35 +4,51 @@ Integrated order-to-audit management system for a small South Indian
 packaged-snacks manufacturer:
 **Sales → Order Verification → GST Invoice → Dispatch → Inventory → Production → Costing → Monthly Audit Reports.**
 
-> Status: **Phase 9 complete**. The backend covers the whole order-to-audit flow:
-> authentication and roles, master data, audit trail, stock ledger, purchases,
-> BOMs and production (variance, costing), sales orders with stock
-> reservation, GST invoices (PDF), dispatch, credit notes, payments and
-> receivables, plus 15 reports with CSV/Excel/PDF export and product costing.
-> Benchmark steps 1–9 are verified. Phase 8 added the React frontend with
-> role-specific screens for every role. Phase 9 added an end-to-end HTTP benchmark test and
-> PostgreSQL concurrency tests, and fixed the bugs they found. All 247 tests pass on PostgreSQL
-> ([docs/TESTING.md](docs/TESTING.md)). See
-> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#6-implementation-plan-phases).
+> Status: **complete prototype (Phase 10)**. All 15 reports, every role's screens and the full
+> mandatory benchmark work end to end. **255 tests pass on PostgreSQL 16** (246 on SQLite, plus 9
+> that need PostgreSQL), including the whole benchmark over HTTP and real concurrency tests.
+> See [what is done and what is not](docs/PROJECT.md#moscow).
+
+## Run it (Docker)
+
+```powershell
+copy .env.example .env     # set POSTGRES_PASSWORD and JWT_SECRET_KEY (see the file)
+docker compose up --build -d
+```
+
+Open <http://localhost:8000> and sign in with a [demo account](#demo-credentials). By default the
+benchmark is pre-run through production (steps 1–3), ready for the
+[demo script](docs/DEMO_SCRIPT.md). Details, options and backups:
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Docker was not available in the development
+environment, so the container build is the one step that has not been run. Everything the
+containers do was verified outside Docker ([details](docs/DEPLOYMENT.md#what-has-been-verified)).
 
 ## Stack
 
 React + Vite + TypeScript + Tailwind (frontend) · FastAPI + SQLAlchemy 2 +
 Pydantic 2 + Alembic (backend) · PostgreSQL · PyJWT + bcrypt ·
-ReportLab / openpyxl · Pytest · Docker Compose.
+ReportLab / openpyxl · Pytest · Docker Compose. [Why this stack](docs/PROJECT.md#stack-justification).
 
 ## Documentation
 
+**Start here**
+* [Design note](docs/DESIGN_NOTE.md) (2 pages): architecture, key decisions, trade-offs
+* [Benchmark: expected results and workings](docs/BENCHMARK.md)
+* [Project overview](docs/PROJECT.md): stack justification, MoSCoW, assumptions, limitations
+* [Deployment](docs/DEPLOYMENT.md) · [Demo script (8 min)](docs/DEMO_SCRIPT.md) · [Testing](docs/TESTING.md)
+
+**Reference**
 * [Architecture & implementation plan](docs/ARCHITECTURE.md)
 * [Database schema & ER diagram](docs/DATABASE.md)
 * [API & permissions](docs/API.md)
 * [Inventory engine](docs/INVENTORY.md)
-* [BOM & production engine](docs/PRODUCTION.md) (includes benchmark steps 1–3 and costing)
-* [Sales, GST billing, dispatch & receivables](docs/BILLING.md) (benchmark steps 4–7)
-* [Reports, exports & costing](docs/REPORTS.md) (benchmark steps 8–9)
-* [Testing: end-to-end, concurrency, PostgreSQL](docs/TESTING.md)
+* [BOM & production engine](docs/PRODUCTION.md)
+* [Sales, GST billing, dispatch & receivables](docs/BILLING.md)
+* [Reports, exports & costing](docs/REPORTS.md)
 
-## Backend quick start (development)
+## Development
+
+### Backend quick start
 
 ```powershell
 cd backend
@@ -76,7 +92,7 @@ This runs all benchmark steps through the real services and prints expected
 vs actual figures. Add `--until 3` to stop after production, which leaves
 steps 4–7 to demonstrate live in the UI.
 
-## Frontend quick start
+### Frontend quick start
 
 ```powershell
 cd frontend
@@ -90,7 +106,8 @@ the production bundle.
 
 ## Demo credentials
 
-Created by `python -m app.seed`. The password for every account is
+Created by `python -m app.seed`, and by the Docker start-up unless `SEED` is `none` or
+`reference`. The password for every account is
 `Demo@1234`, which you can override with the `SEED_DEMO_PASSWORD`
 environment variable before seeding. These accounts are **for demonstration
 only**.

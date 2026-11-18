@@ -174,8 +174,10 @@ def test_full_benchmark_over_http(client, db: Session):
     assert dash["orders"]["pending_approval"] == 1 and dash["orders"]["pending_with_shortage"] == 1
 
     # ---- Audit trail recorded every step ----
-    actions = {(a["entity_type"], a["action"]) for a in
-               ok(client.get("/api/audit-logs", headers=auditor, params={"limit": 200}))["items"]}
+    logs = ok(client.get("/api/audit-logs", headers=auditor, params={"limit": 200}))["items"]
+    actions = {(a["entity_type"], a["action"]) for a in logs}
+    approval = next(a for a in logs if a["entity_type"] == "sales_order" and a["action"] == "APPROVE")
+    assert approval["username"] == "admin" and approval["ip_address"]  # who, and from where
     for expected in (("purchase", "POST"), ("production_run", "POST"), ("sales_order", "APPROVE"),
                      ("invoice", "CREATE"), ("dispatch", "DISPATCH"), ("payment", "RECEIPT")):
         assert expected in actions, expected

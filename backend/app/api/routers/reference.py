@@ -110,4 +110,7 @@ def audit_logs(
     if date_to:
         stmt = stmt.where(AuditLog.occurred_at < datetime.combine(date_to + timedelta(days=1), time.min))
     rows, total = paginate(db, stmt, limit, offset)
-    return Page(items=rows, total=total, limit=limit, offset=offset)
+    ids = {r.user_id for r in rows if r.user_id is not None}
+    names = dict(db.execute(select(User.id, User.username).where(User.id.in_(ids))).all()) if ids else {}
+    items = [AuditLogOut.model_validate(r).model_copy(update={"username": names.get(r.user_id)}) for r in rows]
+    return Page(items=items, total=total, limit=limit, offset=offset)

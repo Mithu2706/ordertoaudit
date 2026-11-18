@@ -72,6 +72,7 @@ class AuditLogOut(OutSchema):
     id: int
     occurred_at: datetime
     user_id: int | None
+    username: str | None = None  # filled by the endpoint (None = system)
     action: str
     entity_type: str
     entity_id: str

@@ -1,0 +1,14 @@
+**/.git
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.env
+**/.pgdata
+frontend/dist
+**/*.tsbuildinfo
+**/*.db
+.claude
+docs
+backend/tests

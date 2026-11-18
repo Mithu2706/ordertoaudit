@@ -218,7 +218,7 @@ All overhead is charged to the run's good output.
 | 7 | Costing + reports + CSV/XLSX/PDF exports | Cost-per-packet test, report tests |
 | 8 | Frontend: role dashboards, polish | Manual walkthrough of every role |
 | 9 | Benchmark end-to-end test, bug fixing | All 13 test areas + benchmark green |
-| 10 | README, design note, Docker Compose, demo script | Fresh clone → `docker compose up` works |
+| 10 | README, design note, Docker Compose, demo script | Fresh clone → `docker compose up` works (container steps verified outside Docker; the image build itself is unrun, see DEPLOYMENT.md) |
 
 ## 7. Environment notes
 

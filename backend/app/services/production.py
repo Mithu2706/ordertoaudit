@@ -195,7 +195,7 @@ def post_run(db: Session, run_id: int, actor: User, ip: str | None = None) -> Pr
     db.flush()
     audit.record(db, user_id=actor.id, action="POST", entity_type="production_run", entity_id=run.id,
                  after=audit.snapshot(run),
-                 summary=f"Run {run.run_no} posted: {good} good, cost {total}"
+                 summary=f"Run {run.run_no} posted: {good.normalize():f} good, cost {total}"
                          + (" (variance alert)" if run.has_variance_alert else ""), ip=ip)
     return run
 

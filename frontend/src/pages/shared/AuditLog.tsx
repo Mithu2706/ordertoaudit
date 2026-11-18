@@ -8,7 +8,7 @@ import { dateTime } from "@/lib/format";
 import type { Page } from "@/lib/types";
 
 interface Log {
-  id: number; occurred_at: string; user_id: number | null; action: string; entity_type: string; entity_id: string;
+  id: number; occurred_at: string; user_id: number | null; username: string | null; action: string; entity_type: string; entity_id: string;
   summary: string | null; before_data: Record<string, unknown> | null; after_data: Record<string, unknown> | null;
   reason: string | null; ip_address: string | null;
 }
@@ -64,7 +64,7 @@ export default function AuditLog() {
                     <Td><Badge tone={ACTION_TONE[l.action] ?? "gray"}>{l.action}</Badge></Td>
                     <Td>{l.entity_type.replace(/_/g, " ")} #{l.entity_id}</Td>
                     <Td wrap className="max-w-md">{l.summary}{l.reason && <div className="text-xs text-navy-400">Reason: {l.reason}</div>}</Td>
-                    <Td className="text-navy-400">{l.user_id ?? "system"}</Td>
+                    <Td className="text-navy-400">{l.username ?? "system"}{l.ip_address && <div className="text-xs">{l.ip_address}</div>}</Td>
                   </tr>
                   {open === l.id && (
                     <tr className="bg-navy-50/50"><Td colSpan={6} wrap><Diff before={l.before_data} after={l.after_data} /></Td></tr>

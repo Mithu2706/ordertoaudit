@@ -7,13 +7,14 @@
 | Unit and service rules (units, GST, costing, variance, numbering, ledger) | `tests/test_*.py` | SQLite and PostgreSQL |
 | API, validation and the 80-case permission matrix | `test_permissions.py`, `test_*.py` | SQLite and PostgreSQL |
 | **End-to-end benchmark over HTTP** (real password logins, steps 1–9, reports, dashboard, audit trail) | `test_e2e_benchmark.py` | SQLite and PostgreSQL |
+| Production configuration (SPA serving, start-up guard) | `test_deployment.py` | SQLite and PostgreSQL |
 | **Concurrency** (row locks, idempotent postings, gap-free numbering) | `test_postgres.py` | PostgreSQL only |
 | **Database guards** (append-only ledger trigger, CHECK constraints) and **migrations** (down to base and back up) | `test_postgres.py` | PostgreSQL only |
 
-Latest results (Phase 9):
+Latest results (Phase 10):
 
-* SQLite: **238 passed, 9 skipped**. The skipped tests are PostgreSQL-only.
-* PostgreSQL 16.2: **247 passed, 0 skipped**.
+* SQLite: **246 passed, 9 skipped**. The skipped tests are PostgreSQL-only.
+* PostgreSQL 16.2: **255 passed, 0 skipped**.
 
 ## Running
 
@@ -79,4 +80,4 @@ missing token or wrong password.
 
 * Browser end-to-end tests are not automated. The UI was checked by hand in Phase 8.
 * Load and performance testing.
-* The Docker Compose stack (Phase 10).
+* `docker compose up` itself: Docker isn't installed here. See [DEPLOYMENT.md](DEPLOYMENT.md#what-has-been-verified) for what was verified instead.

@@ -10,4 +10,16 @@ export default defineConfig({
     port: 5173,
     proxy: { "/api": { target: "http://127.0.0.1:8000", changeOrigin: true } },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Vendor libraries in their own long-cached chunks; app code changes don't re-download them.
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom", "@tanstack/react-query"],
+          charts: ["recharts"],
+          ui: ["framer-motion", "lucide-react"],
+        },
+      },
+    },
+  },
 });
