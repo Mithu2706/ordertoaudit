@@ -59,3 +59,28 @@ def through_step3(db: Session) -> Bench:
     step1_purchase(db, b)
     steps2_3_production(db, b)
     return b
+
+
+def place_order(db: Session, b: Bench, salesman: str, customer: str, qty: str, submit: bool = True):
+    from app.schemas.sales import OrderIn, OrderLineIn
+    from app.services import sales
+    user = b.users[salesman]
+    order = sales.create_order(db, OrderIn(customer_id=b.customers[customer].id,
+                                           items=[OrderLineIn(product_id=b.ids["FG-MUR200"], quantity=D(qty))]), user)
+    if submit:
+        sales.submit_order(db, order.id, user)
+    return order
+
+
+def approve(db: Session, b: Bench, order, qty: str | None = None):
+    from app.schemas.sales import ApprovalLineIn, ApproveIn
+    from app.services import sales
+    lines = [ApprovalLineIn(order_item_id=order.items[0].id, quantity_approved=D(qty))] if qty else []
+    return sales.approve_order(db, order.id, ApproveIn(version=order.version, lines=lines,
+                                                       reason="Partial: stock limited" if qty else None),
+                               b.users["admin"])
+
+
+def step4_5_order_a(db: Session, b: Bench):
+    """Retailer A, 150 packets, approved (not yet invoiced)."""
+    return approve(db, b, place_order(db, b, "salesman_a", "RET-A", "150"))

@@ -68,6 +68,13 @@ Full schema: `/api/docs`.
 | `GET /boms`, `GET /production-runs` (incl. `alerts_only`) | | ✔ | ✔ | ✔ | ✔ |
 | `POST /boms`, `/boms/{id}/activate` | | ✔ | ✔ | | |
 | `POST /production-runs`, `PUT …/actuals`, `POST …/post`, `…/cancel` | | ✔ | ✔ | | |
+| `GET /catalog` (price list + available stock) | ✔ | ✔ | ✔ | ✔ | ✔ |
+| `GET /sales-orders` | own only | ✔ | | ✔ | ✔ |
+| `POST/PUT /sales-orders`, `…/submit` | own | | | | |
+| `POST /sales-orders/{id}/approve`, `…/reject` | | ✔ | | | |
+| `POST /sales-orders/{id}/cancel` | own draft/submitted | ✔ | | | |
+| `GET /invoices`, `/invoices/{id}/pdf`, `/dispatches`, `/payments`, `/receivables` | | ✔ | | ✔ | ✔ |
+| `POST /invoices`, `/invoices/{id}/credit-notes`, `/dispatches`, `/payments` | | ✔ | | | |
 
 `tests/test_permissions.py` checks **every cell** of this table: each role
 against each endpoint, 80 cases in total.
