@@ -4,7 +4,8 @@ Integrated order-to-audit management system for a small South Indian
 packaged-snacks manufacturer:
 **Sales → Order Verification → GST Invoice → Dispatch → Inventory → Production → Costing → Monthly Audit Reports.**
 
-> Status: **Phase 4 complete**: authentication and roles, master data, audit
+> Status: **Phase 5 complete** (sales orders, approval, stock reservation and
+> shortage). Earlier phases: authentication and roles, master data, audit
 > trail, stock ledger, purchases, BOMs and the production engine with variance
 > and run costing. The application is being built phase by phase; see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#6-implementation-plan-phases).
 

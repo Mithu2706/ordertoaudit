@@ -10,6 +10,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import StaleDataError
 
 
 class DomainError(Exception):
@@ -69,6 +70,12 @@ def register_exception_handlers(app: FastAPI) -> None:
             _body("validation_error", "Some fields are invalid", jsonable_encoder({"errors": errors})),
             status_code=422,
         )
+
+    @app.exception_handler(StaleDataError)
+    async def _stale(_req: Request, exc: StaleDataError) -> JSONResponse:
+        # Optimistic lock (version_id_col): someone else updated the row first.
+        return JSONResponse(_body("conflict", "This record was changed by someone else; reload and retry."),
+                            status_code=409)
 
     @app.exception_handler(IntegrityError)
     async def _integrity(_req: Request, exc: IntegrityError) -> JSONResponse:

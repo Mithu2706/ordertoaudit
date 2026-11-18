@@ -119,12 +119,15 @@ proportionally. For the benchmark, flour = (100×42 + 60×45) / 160 = **₹43.12
 
 ### 3.7 Orders, availability and shortage
 
-`available = on_hand − reserved`, where *reserved* = invoiced but not yet
-dispatched quantity. Approval shows availability per line; dispatch and
-invoicing are refused for quantities above availability and the API returns
-the exact shortage (Distributor B: 120 ordered − 88 available = **32 short**).
-The admin may approve a reduced quantity (logged in the audit trail) or keep
-the order pending.
+`available = on_hand − reserved`, where *reserved* = **approved** but not yet
+dispatched quantity (orders APPROVED / INVOICED / PARTIALLY_DISPATCHED).
+Approval is the commitment point. It locks the product rows, and approving
+more than is available is refused with the exact shortage (Distributor B:
+120 ordered − 88 available = **32 short**). The admin may approve a reduced
+quantity or correct a price, but must give a reason, which is audited.
+Otherwise the order stays pending. Approval also checks the order `version`
+the admin reviewed (optimistic lock). Implemented in
+`services/availability.py` and `services/sales.py` (Phase 5).
 
 ### 3.8 Production engine
 
