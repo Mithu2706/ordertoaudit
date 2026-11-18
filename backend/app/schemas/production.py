@@ -141,6 +141,9 @@ class ProductionRunOut(OutSchema):
     yield_variance_pct: Decimal | None
     variance_tolerance_pct: Decimal
     has_variance_alert: bool
+    selling_price: Decimal | None = None
+    gross_margin_per_unit: Decimal | None = None
+    gross_margin_pct: Decimal | None = None
     remarks: str | None
     posted_at: datetime | None
     consumption: list[ConsumptionOut]

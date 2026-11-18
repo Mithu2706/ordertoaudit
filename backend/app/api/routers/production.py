@@ -21,6 +21,7 @@ from app.schemas.production import (
 )
 from app.services import bom as bom_svc
 from app.services import production as svc
+from app.services.costing import run_costing
 
 boms = APIRouter(prefix="/boms", tags=["boms"])
 runs = APIRouter(prefix="/production-runs", tags=["production"])
@@ -62,7 +63,11 @@ def run_out(db: Session, run: ProductionRun) -> ProductionRunOut:
             variance_pct=c.variance_pct, is_variance_alert=c.is_variance_alert,
             unit_cost=c.unit_cost, total_cost=c.total_cost,
         ))
+    costing = run_costing(db, run)
     return ProductionRunOut(
+        selling_price=costing.selling_price if costing else None,
+        gross_margin_per_unit=costing.margin_per_unit if costing else None,
+        gross_margin_pct=costing.margin_pct if costing else None,
         id=run.id, run_no=run.run_no, product_id=run.product_id, product_code=product.code,
         product_name=product.name, output_unit_code=units[product.base_unit_id], bom_id=run.bom_id,
         bom_version=db.get(Bom, run.bom_id).version, production_date=run.production_date, status=run.status,

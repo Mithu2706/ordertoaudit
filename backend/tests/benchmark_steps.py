@@ -84,3 +84,22 @@ def approve(db: Session, b: Bench, order, qty: str | None = None):
 def step4_5_order_a(db: Session, b: Bench):
     """Retailer A, 150 packets, approved (not yet invoiced)."""
     return approve(db, b, place_order(db, b, "salesman_a", "RET-A", "150"))
+
+
+def through_step7(db: Session) -> Bench:
+    """Steps 1-7: production posted; Retailer A approved, invoiced, dispatched, paid 4,000;
+    Distributor B's 120-packet order submitted and left pending (short by 32)."""
+    from datetime import date
+
+    from app.models.enums import PaymentMode
+    from app.services import dispatch, invoicing, payments
+    b = through_step3(db)
+    admin = b.users["admin"]
+    order_a = step4_5_order_a(db, b)
+    invoicing.create_invoice(db, order_a.id, None, admin)
+    dispatch.create_dispatch(db, order_id=order_a.id, lines=None, dispatch_date=None, vehicle_no="TN37 AB 1234",
+                             transporter=None, remarks=None, actor=admin)
+    place_order(db, b, "salesman_b", "DIST-B", "120")
+    payments.record_payment(db, customer_id=b.customers["RET-A"].id, payment_date=date.today(), amount=D("4000"),
+                            mode=PaymentMode.UPI, reference_no="UTR-1", remarks=None, allocations=None, actor=admin)
+    return b

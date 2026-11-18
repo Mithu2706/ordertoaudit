@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routers import auth, billing, inventory, items, parties, production, purchases, reference, sales, users
+from app.api.routers import auth, billing, inventory, items, parties, production, purchases, reference, reports, sales, users
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 
@@ -12,7 +12,7 @@ API_PREFIX = "/api"
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Order-to-Audit System",
-        version="0.6.0",
+        version="0.7.0",
         description="Sales → Verification → GST Invoice → Dispatch → Inventory → Production → Costing → Audit",
         docs_url=f"{API_PREFIX}/docs",
         redoc_url=f"{API_PREFIX}/redoc",
@@ -46,6 +46,7 @@ def create_app() -> FastAPI:
         billing.dispatches,
         billing.payments,
         billing.receivables,
+        reports.router,
         reference.router,
     ):
         app.include_router(router, prefix=API_PREFIX)

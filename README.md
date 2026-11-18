@@ -4,12 +4,12 @@ Integrated order-to-audit management system for a small South Indian
 packaged-snacks manufacturer:
 **Sales → Order Verification → GST Invoice → Dispatch → Inventory → Production → Costing → Monthly Audit Reports.**
 
-> Status: **Phase 6 complete**. The backend covers the whole order-to-cash flow:
+> Status: **Phase 7 complete**. The backend covers the whole order-to-audit flow:
 > authentication and roles, master data, audit trail, stock ledger, purchases,
 > BOMs and production (variance, costing), sales orders with stock
 > reservation, GST invoices (PDF), dispatch, credit notes, payments and
-> receivables. Benchmark steps 1–7 are verified. Still to come: reports
-> and exports (Phase 7) and the frontend (Phase 8). See
+> receivables, plus 15 reports with CSV/Excel/PDF export and product costing.
+> Benchmark steps 1–9 are verified. Still to come: the frontend (Phase 8). See
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#6-implementation-plan-phases).
 
 ## Stack
@@ -26,6 +26,7 @@ ReportLab / openpyxl · Pytest · Docker Compose.
 * [Inventory engine](docs/INVENTORY.md)
 * [BOM & production engine](docs/PRODUCTION.md) (includes benchmark steps 1–3 and costing)
 * [Sales, GST billing, dispatch & receivables](docs/BILLING.md) (benchmark steps 4–7)
+* [Reports, exports & costing](docs/REPORTS.md) (benchmark steps 8–9)
 
 ## Backend quick start (development)
 
