@@ -46,7 +46,7 @@ Status: ✅ done and tested · 🟡 partial · ❌ not done
 | Low-stock alerts (reorder levels) | ✅ dashboard and stock screen |
 | Versioned, immutable BOMs | ✅ |
 | Concurrency safety (simultaneous approvals, postings, numbering, payments) | ✅ tested on PostgreSQL |
-| Master-data screens (customers, products, suppliers, users, settings) | 🟡 full API with validation and audit, but **no UI screens**; data is seeded |
+| Master-data screens (customers, suppliers, products, raw materials, packaging, users, company, settings) | ✅ one screen with a tab per record type and role-aware tabs and buttons; edits send only changed fields; server validation shown inline |
 
 ### Could have
 | Feature | Status |

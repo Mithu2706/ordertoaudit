@@ -115,7 +115,7 @@ only**.
 | Username | Role | Use it to… |
 |---|---|---|
 | `owner` | Owner | dashboard, users (incl. owners), settings |
-| `admin` | Admin | approve orders, invoices, dispatch, payments, masters |
+| `admin` | Admin | approve orders, invoices, dispatch, payments, master data (customers, products, users…) |
 | `production` | Production Supervisor | receipts, BOMs, production runs |
 | `auditor` | Accountant / Auditor | read-only reports and audit log |
 | `salesman_a` | Salesman | orders for Retailer A (Tamil Nadu) |

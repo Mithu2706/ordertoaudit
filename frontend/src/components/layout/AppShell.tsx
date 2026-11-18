@@ -1,5 +1,5 @@
 import {
-  BarChart3, ClipboardCheck, ClipboardList, Factory, FileText, Gauge, IndianRupee, LogOut, Menu, Package,
+  BarChart3, ClipboardCheck, ClipboardList, Database, Factory, FileText, Gauge, IndianRupee, LogOut, Menu, Package,
   PlusCircle, ScrollText, ShoppingCart, Truck, Warehouse, X, type LucideIcon,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -26,6 +26,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { to: "/dashboard", label: "Dashboard", icon: Gauge },
     { to: "/reports", label: "Reports", icon: BarChart3 },
     { to: "/audit", label: "Audit trail", icon: ScrollText },
+    { to: "/masters", label: "Master data", icon: Database },
   ],
   PRODUCTION: [
     { to: "/production", label: "Production runs", icon: Factory },
@@ -33,6 +34,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { to: "/stock", label: "Stock", icon: Warehouse },
     { to: "/boms", label: "Bills of materials", icon: Package },
     { to: "/reports", label: "Reports", icon: BarChart3 },
+    { to: "/masters", label: "Master data", icon: Database },
   ],
   OWNER: [
     { to: "/dashboard", label: "Dashboard", icon: Gauge },
@@ -40,12 +42,14 @@ export const NAV: Record<Role, NavItem[]> = {
     { to: "/stock", label: "Stock", icon: Warehouse },
     { to: "/production", label: "Production", icon: Factory },
     { to: "/audit", label: "Audit trail", icon: ScrollText },
+    { to: "/masters", label: "Master data", icon: Database },
   ],
   AUDITOR: [
     { to: "/reports", label: "Reports", icon: BarChart3 },
     { to: "/dashboard", label: "Dashboard", icon: Gauge },
     { to: "/stock", label: "Stock", icon: Warehouse },
     { to: "/audit", label: "Audit trail", icon: ScrollText },
+    { to: "/masters", label: "Master data", icon: Database },
   ],
 };
 

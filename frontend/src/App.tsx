@@ -5,6 +5,7 @@ import { Spinner } from "@/components/ui";
 import { HOME, useAuth } from "@/lib/auth";
 import type { Role } from "@/lib/types";
 import LoginPage from "@/pages/LoginPage";
+import MasterData from "@/pages/masters/MasterData";
 import { InvoiceDetail, InvoiceList } from "@/pages/admin/Invoices";
 import { ApprovalQueue, OrderReview } from "@/pages/admin/Orders";
 import PaymentsPage from "@/pages/admin/Payments";
@@ -55,6 +56,8 @@ export default function App() {
 
         <Route path="/dashboard" element={<Guard roles={["OWNER", "ADMIN", "AUDITOR"]}><Dashboard /></Guard>} />
         <Route path="/reports" element={<Guard roles={["ADMIN", "PRODUCTION", "OWNER", "AUDITOR"]}><Reports /></Guard>} />
+        <Route path="/masters" element={<Guard roles={["ADMIN", "PRODUCTION", "OWNER", "AUDITOR"]}><MasterData /></Guard>} />
+        <Route path="/masters/:tab" element={<Guard roles={["ADMIN", "PRODUCTION", "OWNER", "AUDITOR"]}><MasterData /></Guard>} />
         <Route path="/audit" element={<Guard roles={["ADMIN", "OWNER", "AUDITOR"]}><AuditLog /></Guard>} />
       </Route>
       <Route path="*" element={<Home />} />

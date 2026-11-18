@@ -101,6 +101,9 @@ on PostgreSQL. It deploys with one `docker compose up`."**
 ---
 
 ## Backup lines (if asked)
+* **How do you add a new customer?** Admin → **Master data** → **New customer**. Enter a
+  Karnataka GSTIN for a Tamil Nadu customer and the server refuses it: the GSTIN's state digits
+  and check digit are both verified. Every edit then shows up in the audit trail as before → after.
 * **Why weighted average?** It's simple and stable for a small manufacturer, and the cost changes
   only when stock is bought or made.
 * **What if two admins approve at once?** One wins. The other gets "order changed, reload".

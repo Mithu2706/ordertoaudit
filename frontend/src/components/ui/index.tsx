@@ -31,8 +31,8 @@ export function Button({
         "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
         VARIANTS[variant], sizes[size], className,
       )}
-      disabled={loading || rest.disabled}
       {...rest}
+      disabled={loading || rest.disabled} /* after the spread: a loading button can never be clicked twice */
     >
       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
       {children}
