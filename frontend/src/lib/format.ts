@@ -23,6 +23,18 @@ function split(value: string): { neg: boolean; int: string; frac: string } {
   return { neg, int: int.replace(/^0+(?=\d)/, ""), frac };
 }
 
+/** Round a decimal string half-up to `dp` places using BigInt (no floats): ("31.146", 2) -> "31.15" */
+export function roundStr(value: string, dp: number): string {
+  const neg = value.startsWith("-");
+  const [int, frac = ""] = value.replace("-", "").split(".");
+  const padded = (frac + "0".repeat(dp + 1)).slice(0, dp + 1);
+  let n = BigInt(int + padded);
+  n = n / 10n + (n % 10n >= 5n ? 1n : 0n); // drop the guard digit, rounding half up
+  const s = n.toString().padStart(dp + 1, "0");
+  const out = dp ? `${s.slice(0, -dp)}.${s.slice(-dp)}` : s;
+  return neg && !/^[0.]+$/.test(out) ? `-${out}` : out;
+}
+
 /** "7875.00" -> "₹7,875.00" (always 2 decimals; input is already rounded by the server) */
 export function inr(value: string | null | undefined, symbol = true): string {
   if (value === null || value === undefined || value === "") return "—";

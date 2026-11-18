@@ -4,12 +4,13 @@ Integrated order-to-audit management system for a small South Indian
 packaged-snacks manufacturer:
 **Sales → Order Verification → GST Invoice → Dispatch → Inventory → Production → Costing → Monthly Audit Reports.**
 
-> Status: **Phase 7 complete**. The backend covers the whole order-to-audit flow:
+> Status: **Phase 8 complete**. The backend covers the whole order-to-audit flow:
 > authentication and roles, master data, audit trail, stock ledger, purchases,
 > BOMs and production (variance, costing), sales orders with stock
 > reservation, GST invoices (PDF), dispatch, credit notes, payments and
 > receivables, plus 15 reports with CSV/Excel/PDF export and product costing.
-> Benchmark steps 1–9 are verified. Still to come: the frontend (Phase 8). See
+> Benchmark steps 1–9 are verified. Phase 8 added the React frontend with
+> role-specific screens for every role. See
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#6-implementation-plan-phases).
 
 ## Stack
@@ -55,6 +56,31 @@ with a demo account.
 
 Tests use in-memory SQLite by default. To run the same suite against
 PostgreSQL, set `TEST_DATABASE_URL`.
+
+### Re-run the benchmark scenario
+
+On a fresh database (after `alembic upgrade head`), with no seeding needed:
+
+```powershell
+cd backend
+.venv\Scripts\python -m app.seed.scenario
+```
+
+This runs all benchmark steps through the real services and prints expected
+vs actual figures. Add `--until 3` to stop after production, which leaves
+steps 4–7 to demonstrate live in the UI.
+
+## Frontend quick start
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open <http://localhost:5173>. Vite proxies `/api` to the backend on
+`:8000`, so start the API first. `npm run build` type-checks and builds
+the production bundle.
 
 ## Demo credentials
 

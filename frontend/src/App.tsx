@@ -8,7 +8,12 @@ import LoginPage from "@/pages/LoginPage";
 import { InvoiceDetail, InvoiceList } from "@/pages/admin/Invoices";
 import { ApprovalQueue, OrderReview } from "@/pages/admin/Orders";
 import PaymentsPage from "@/pages/admin/Payments";
+import Dashboard from "@/pages/owner/Dashboard";
+import { RunDetail, RunList } from "@/pages/production/Production";
 import { CustomerHistory, MyOrders, NewOrder, SalesOrderDetail } from "@/pages/sales/Sales";
+import AuditLog from "@/pages/shared/AuditLog";
+import { Boms, Purchases, Stock } from "@/pages/shared/Operations";
+import Reports from "@/pages/shared/Reports";
 
 /** Route guard: must be signed in, and (optionally) have one of `roles`. UX only — the API enforces too. */
 function Guard({ roles, children }: { roles?: Role[]; children: ReactNode }) {
@@ -41,6 +46,16 @@ export default function App() {
         <Route path="/admin/invoices" element={<Guard roles={["ADMIN", "OWNER", "AUDITOR"]}><InvoiceList /></Guard>} />
         <Route path="/admin/invoices/:id" element={<Guard roles={["ADMIN", "OWNER", "AUDITOR"]}><InvoiceDetail /></Guard>} />
         <Route path="/admin/payments" element={<Guard roles={["ADMIN", "OWNER", "AUDITOR"]}><PaymentsPage /></Guard>} />
+
+        <Route path="/production" element={<Guard roles={["PRODUCTION", "ADMIN", "OWNER", "AUDITOR"]}><RunList /></Guard>} />
+        <Route path="/production/:id" element={<Guard roles={["PRODUCTION", "ADMIN", "OWNER", "AUDITOR"]}><RunDetail /></Guard>} />
+        <Route path="/boms" element={<Guard roles={["PRODUCTION", "ADMIN", "OWNER", "AUDITOR"]}><Boms /></Guard>} />
+        <Route path="/purchases" element={<Guard roles={["PRODUCTION", "ADMIN", "OWNER", "AUDITOR"]}><Purchases /></Guard>} />
+        <Route path="/stock" element={<Guard roles={["PRODUCTION", "ADMIN", "OWNER", "AUDITOR"]}><Stock /></Guard>} />
+
+        <Route path="/dashboard" element={<Guard roles={["OWNER", "ADMIN", "AUDITOR"]}><Dashboard /></Guard>} />
+        <Route path="/reports" element={<Guard roles={["ADMIN", "PRODUCTION", "OWNER", "AUDITOR"]}><Reports /></Guard>} />
+        <Route path="/audit" element={<Guard roles={["ADMIN", "OWNER", "AUDITOR"]}><AuditLog /></Guard>} />
       </Route>
       <Route path="*" element={<Home />} />
     </Routes>
