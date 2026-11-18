@@ -111,3 +111,4 @@ class DocumentType(str, enum.Enum):
     PURCHASE = "PURCHASE"
     PRODUCTION_RUN = "PRODUCTION_RUN"
     RECEIPT = "RECEIPT"
+    STOCK_ADJUSTMENT = "STOCK_ADJUSTMENT"  # added in migration 0002

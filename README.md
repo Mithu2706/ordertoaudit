@@ -4,8 +4,8 @@ Integrated order-to-audit management system for a small South Indian
 packaged-snacks manufacturer:
 **Sales → Order Verification → GST Invoice → Dispatch → Inventory → Production → Costing → Monthly Audit Reports.**
 
-> Status: **Phase 2 complete**: architecture, schema, authentication, roles,
-> master data and audit trail. The application is being built phase by phase;
+> Status: **Phase 3 complete**: architecture, schema, authentication, roles,
+> master data, audit trail, unit conversion, stock ledger and purchases. The application is being built phase by phase;
 > see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#6-implementation-plan-phases).
 
 ## Stack
@@ -19,6 +19,7 @@ ReportLab / openpyxl · Pytest · Docker Compose.
 * [Architecture & implementation plan](docs/ARCHITECTURE.md)
 * [Database schema & ER diagram](docs/DATABASE.md)
 * [API & permissions](docs/API.md)
+* [Inventory engine](docs/INVENTORY.md)
 
 ## Backend quick start (development)
 

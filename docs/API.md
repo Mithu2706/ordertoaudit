@@ -40,7 +40,7 @@ Full schema: `/api/docs`.
 4. Escalation guard: only an OWNER can create an owner or modify an owner's
    account. Nobody can deactivate themselves or change their own role.
 
-## Permission matrix (Phase 2 endpoints)
+## Permission matrix
 
 | Endpoint | Salesman | Admin | Production | Owner | Auditor |
 |---|:-:|:-:|:-:|:-:|:-:|
@@ -59,6 +59,12 @@ Full schema: `/api/docs`.
 | `PATCH /company`, `PUT /settings/{key}` | | ✔ | | ✔ | |
 | `GET /settings` | | ✔ | ✔ | ✔ | ✔ |
 | `GET /audit-logs` | | ✔ | | ✔ | ✔ |
+| `GET /inventory/balances`, `/movements`, `/items/{id}/ledger` | | ✔ | ✔ | ✔ | ✔ |
+| `POST /inventory/opening-stock` | | ✔ | | | |
+| `POST /inventory/adjustments` (DAMAGE) | | ✔ | ✔ | | |
+| `POST /inventory/adjustments` (ADJUSTMENT) | | ✔ | | | |
+| `GET /purchases` | | ✔ | ✔ | ✔ | ✔ |
+| `POST/PUT /purchases`, `/post`, `/cancel` | | ✔ | ✔ | | |
 
 `tests/test_permissions.py` checks **every cell** of this table: each role
 against each endpoint, 80 cases in total.
