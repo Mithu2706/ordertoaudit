@@ -35,6 +35,9 @@ class ApproveIn(Schema):
     version: int = Field(description="Order version the admin reviewed (optimistic lock)")
     lines: list[ApprovalLineIn] = Field(default_factory=list, description="Empty = approve as ordered")
     reason: str | None = Field(default=None, min_length=3, max_length=500)
+    credit_override_reason: str | None = Field(
+        default=None, min_length=3, max_length=500,
+        description="Required only when the order takes the customer over its credit limit (audited)")
 
 
 class RejectIn(Schema):
@@ -56,6 +59,21 @@ class StockCheckOut(OutSchema):
     available: Decimal
     shortage: Decimal
     can_fulfil: bool
+
+
+class CreditOut(OutSchema):
+    limit: Decimal
+    unlimited: bool
+    credit_days: int
+    outstanding: Decimal
+    open_orders: Decimal
+    this_order: Decimal
+    exposure: Decimal
+    available: Decimal | None
+    exceeds: bool
+    excess: Decimal
+    overdue: Decimal
+    oldest_overdue_days: int | None
 
 
 class OrderLineOut(OutSchema):
@@ -101,6 +119,7 @@ class OrderOut(OutSchema):
     has_shortage: bool | None
     items: list[OrderLineOut]
     stock_check: list[StockCheckOut] | None
+    credit: CreditOut | None = None  # staff only, while the order awaits approval
 
 
 class OrderSummaryOut(OutSchema):

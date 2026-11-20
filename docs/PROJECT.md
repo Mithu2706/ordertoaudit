@@ -12,7 +12,7 @@
 | Frontend | **React 18 + Vite + TypeScript** | Typed API contracts and fast builds. Large ecosystem, easy to hire for. |
 | UI | **Tailwind, Framer Motion, Lucide, Recharts** | Consistent design tokens, responsive layouts (the salesman screens are phone-first), light animation, icons and charts. |
 | Data fetching | **TanStack Query** | Caching, refetch and invalidation after mutations, without hand-written state management. |
-| Tests | **Pytest** (SQLite fast path and PostgreSQL authoritative run) | 255 tests, including an end-to-end HTTP benchmark and real concurrency tests. |
+| Tests | **Pytest** (SQLite fast path and PostgreSQL authoritative run) | 263 tests, including an end-to-end HTTP benchmark and real concurrency tests. |
 | Deployment | **Docker Compose** | Two containers: PostgreSQL, and the app serving both the API and the built SPA. One command to run anywhere. |
 
 ## MoSCoW
@@ -52,7 +52,7 @@ Status: ✅ done and tested · 🟡 partial · ❌ not done
 | Feature | Status |
 |---|---|
 | Stock adjustments with a reason | ✅ API; 🟡 no dedicated UI form |
-| Credit-limit enforcement at approval | ❌ the limit is stored but not checked |
+| Credit-limit enforcement at approval | ✅ exposure includes outstanding and approved-not-invoiced orders; audited override with a reason; overdue warning |
 | Payment reversal or re-allocation | ❌ |
 | Purchase returns | ❌ the movement type exists, but there is no workflow |
 | Code-split routes and a smaller first load | 🟡 vendor chunks split; routes are not lazy-loaded |

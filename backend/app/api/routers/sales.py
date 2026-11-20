@@ -10,6 +10,7 @@ from app.models import Customer, Item, Product, SalesOrder, Unit, User
 from app.models.enums import OrderStatus, RoleCode
 from app.schemas.common import Page
 from app.schemas.sales import (
+    CreditOut,
     ApproveIn,
     CancelIn,
     CatalogItemOut,
@@ -20,7 +21,7 @@ from app.schemas.sales import (
     RejectIn,
     StockCheckOut,
 )
-from app.services import gst
+from app.services import credit, gst
 from app.services import sales as svc
 from app.services.availability import check_order
 from app.services.reference import get_company
@@ -68,6 +69,14 @@ def order_out(db: Session, order: SalesOrder, actor: User) -> OrderOut:
                 requested=c.requested, on_hand=c.on_hand, reserved_by_others=c.reserved_by_others,
                 available=c.available, shortage=c.shortage, can_fulfil=c.can_fulfil) for c in checks]
 
+    credit_out = None
+    if order.status in (OrderStatus.DRAFT, OrderStatus.SUBMITTED) and actor.role.code != RoleCode.SALESMAN:
+        pos = credit.position(db, customer, this_order=tot.total, exclude_order_id=order.id)
+        credit_out = CreditOut(
+            limit=pos.limit, unlimited=pos.unlimited, credit_days=pos.credit_days, outstanding=pos.outstanding,
+            open_orders=pos.open_orders, this_order=pos.this_order, exposure=pos.exposure, available=pos.available,
+            exceeds=pos.exceeds, excess=pos.excess, overdue=pos.overdue, oldest_overdue_days=pos.oldest_overdue_days)
+
     return OrderOut(
         id=order.id, order_no=order.order_no, customer_id=customer.id, customer_name=customer.name,
         customer_state_code=customer.state_code, salesman_id=salesman.id, salesman_name=salesman.full_name,
@@ -75,7 +84,7 @@ def order_out(db: Session, order: SalesOrder, actor: User) -> OrderOut:
         reviewed_by=order.reviewed_by, reviewed_at=order.reviewed_at, rejection_reason=order.rejection_reason,
         version=order.version, supply_type=kind, taxable_amount=tot.taxable, cgst_amount=tot.cgst,
         sgst_amount=tot.sgst, igst_amount=tot.igst, total_amount=tot.total, has_shortage=has_shortage,
-        items=lines, stock_check=stock_check,
+        items=lines, stock_check=stock_check, credit=credit_out,
     )
 
 

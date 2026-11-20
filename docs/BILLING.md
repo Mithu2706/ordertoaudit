@@ -70,10 +70,33 @@ A credit can never exceed the invoice's unpaid balance.
 Dispatch value: 150 packets leave at the finished-goods weighted average,
 7,297.50 × 150 / 238 = ₹4,599.26.
 
-## 7. Known limitations
+## 7. Credit control (at approval)
 
-* Credit-limit checks aren't enforced at approval yet (the customer master
-  stores `credit_limit`).
+The check runs when an admin approves an order:
+
+```
+exposure = net outstanding (open invoice balances - unallocated advances)
+         + other approved orders not yet invoiced (incl. GST)
+         + this order at the quantities and prices being approved (incl. GST)
+```
+
+* **No limit:** `credit_limit = 0` means the customer has no limit.
+* **Over the limit:** approval is refused with `credit_limit_exceeded` (HTTP 422). The response
+  carries the full position: limit, outstanding, open orders, this order, exposure and excess.
+* **Ways forward:** the admin can approve a smaller quantity that fits, wait for a payment (which
+  lowers outstanding), or approve with a `credit_override_reason`.
+* **Overrides are audited:** the audit entry stores the reason and the full credit position,
+  and its summary says "approved over the credit limit".
+* **Overdue invoices** (older than the customer's `credit_days`) are shown on the review screen
+  as a warning. They don't block approval.
+* **Concurrency:** the customer row is locked during approval, so two simultaneous approvals
+  can't both fit under one limit (tested on PostgreSQL). In the benchmark both orders are for the
+  same product, so the stock lock also serialises them there. A one-customer, two-product race
+  isn't separately tested.
+* **Who sees it:** the review screen shows the credit position to staff; salesmen don't see it.
+
+## 8. Known limitations
+
 * A receipt can't be reversed or re-allocated after it is saved. A
   correction workflow would be a stretch goal.
 * Ageing "as of" a past date uses invoices dated up to that date, but

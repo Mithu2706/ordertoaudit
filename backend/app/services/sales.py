@@ -22,7 +22,7 @@ from app.core.errors import BusinessRuleError, ConflictError, NotFoundError, Per
 from app.models import Customer, Item, Product, SalesOrder, SalesOrderItem, User
 from app.models.enums import DocumentType, OrderStatus, RoleCode, UnitDimension
 from app.schemas.sales import ApproveIn, OrderIn
-from app.services import audit, numbering
+from app.services import audit, credit, numbering
 from app.services.availability import availability, check_order
 from app.services.common import paginate
 from app.services.inventory import InsufficientStockError, lock_item
@@ -72,6 +72,10 @@ def _build_lines(db: Session, order: SalesOrder, data: OrderIn) -> None:
 def _n(value: str) -> str:
     """'120.0000' -> '120' for human-readable messages (details keep full precision)."""
     return f"{Decimal(value).normalize():f}"
+
+
+def _money(value: Decimal) -> str:
+    return f"Rs {value:,.2f}"
 
 
 def _require_owner_salesman(order: SalesOrder, actor: User) -> None:
@@ -176,6 +180,22 @@ def approve_order(db: Session, order_id: int, data: ApproveIn, actor: User, ip: 
             {"lines": shortages, "shortage": first["shortage"]},
         )
 
+    # Credit control. Lock the customer so two approvals can't both fit under the same limit.
+    customer = db.scalars(select(Customer).where(Customer.id == order.customer_id)
+                          .with_for_update().execution_options(populate_existing=True)).one()
+    credit_pos = credit.position(db, customer, this_order=credit.order_value(db, order, approved, prices),
+                                 exclude_order_id=order.id)
+    credit_override = None
+    if credit_pos.exceeds:
+        if not data.credit_override_reason:
+            raise credit.CreditLimitError(
+                f"Credit limit exceeded for {customer.name}: limit {_money(credit_pos.limit)}, exposure with this "
+                f"order {_money(credit_pos.exposure)} (over by {_money(credit_pos.excess)}). Reduce the order, "
+                "collect payment first, or approve with a credit-override reason.",
+                {**credit_pos.details(), "field": "credit_override_reason"},
+            )
+        credit_override = {**credit_pos.details(), "reason": data.credit_override_reason}
+
     before = _lines_snapshot(order)
     for li in order.items:
         li.quantity_approved = approved[li.id]
@@ -186,8 +206,11 @@ def approve_order(db: Session, order_id: int, data: ApproveIn, actor: User, ip: 
     order.reviewed_at = datetime.now(UTC)
     db.flush()
     audit.record(db, user_id=actor.id, action="APPROVE", entity_type="sales_order", entity_id=order.id,
-                 before={"items": before}, after={"items": _lines_snapshot(order)}, reason=data.reason,
-                 summary=f"Order {order.order_no} approved" + (" with changes" if modified else ""), ip=ip)
+                 before={"items": before},
+                 after={"items": _lines_snapshot(order), **({"credit_override": credit_override} if credit_override else {})},
+                 reason="; ".join(r for r in (data.reason, credit_override and f"Credit override: {data.credit_override_reason}") if r) or None,
+                 summary=f"Order {order.order_no} approved" + (" with changes" if modified else "")
+                         + (" over the credit limit" if credit_override else ""), ip=ip)
     return order
 
 

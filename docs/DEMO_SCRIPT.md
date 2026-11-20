@@ -95,12 +95,16 @@ Sign in as **auditor** (read-only).
 
 ### 7:40–8:00 · Close
 **"One set of books from order to audit, with exact decimal money and a ledger the database
-protects. 255 automated tests, including the full benchmark over HTTP and real concurrency tests
+protects. 263 automated tests, including the full benchmark over HTTP and real concurrency tests
 on PostgreSQL. It deploys with one `docker compose up`."**
 
 ---
 
 ## Backup lines (if asked)
+* **What stops a customer running up unpaid bills?** Credit control at approval. Exposure is
+  what they owe, plus approved orders not yet invoiced, plus this order. Above the limit the
+  server refuses, unless the admin records an override reason, which is audited. Demo it by
+  setting Retailer A's limit to ₹5,000 in Master data, then ordering 50 packets.
 * **How do you add a new customer?** Admin → **Master data** → **New customer**. Enter a
   Karnataka GSTIN for a Tamil Nadu customer and the server refuses it: the GSTIN's state digits
   and check digit are both verified. Every edit then shows up in the audit trail as before → after.

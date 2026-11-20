@@ -67,6 +67,21 @@ export interface OrderLine {
   line_total: Dec;
 }
 
+export interface Credit {
+  limit: Dec;
+  unlimited: boolean;
+  credit_days: number;
+  outstanding: Dec;
+  open_orders: Dec;
+  this_order: Dec;
+  exposure: Dec;
+  available: Dec | null;
+  exceeds: boolean;
+  excess: Dec;
+  overdue: Dec;
+  oldest_overdue_days: number | null;
+}
+
 export interface StockCheck {
   order_item_id: number;
   product_id: number;
@@ -103,6 +118,7 @@ export interface Order {
   has_shortage: boolean | null;
   items: OrderLine[];
   stock_check: StockCheck[] | null;
+  credit: Credit | null;
 }
 
 export interface OrderSummary {

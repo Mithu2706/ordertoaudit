@@ -289,3 +289,18 @@ def test_simultaneous_payments_never_over_allocate_an_invoice(live: Engine):
     with Session(live) as s:
         assert invoicing.invoice_balance(s, s.get(Invoice, inv_id)) == D("0.00")
         assert s.scalar(select(func.count()).select_from(Payment)) == 2
+
+
+def test_simultaneous_approvals_cannot_both_fit_under_one_credit_limit(live: Engine):
+    """Retailer A limit 10,000: two orders of 100 packets (5,250 each) fit alone, not together."""
+    from app.models import Customer
+    from app.services.credit import CreditLimitError
+    with Session(live) as s:
+        cust = s.scalars(select(Customer).where(Customer.code == "RET-A")).one()
+        cust.credit_limit = D("10000.00")
+        s.commit()
+    a = _submitted_order(live, "salesman_a", "RET-A", "100")
+    b = _submitted_order(live, "salesman_a", "RET-A", "100")
+    results = race(live, _approve_job(a), _approve_job(b))
+    assert results.count(OrderStatus.APPROVED) == 1, results
+    assert sum(isinstance(r, CreditLimitError) for r in results) == 1, results

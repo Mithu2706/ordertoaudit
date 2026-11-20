@@ -1,16 +1,16 @@
 /** Admin: approval queue with stock indicators, and order review (approve / partial / reject / invoice). */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, CheckCircle2, FileText, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, FileText, ShieldAlert, Wallet, XCircle } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { OrderTotals } from "@/components/OrderTotals";
 import {
   Badge, Button, Card, EmptyState, ErrorBanner, Field, Modal, PageHeader, Spinner, StatusBadge, Table, Td, Th, cx, useToast,
 } from "@/components/ui";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { date, dateTime, inr, qty } from "@/lib/format";
-import type { Invoice, InvoiceSummary, Order, OrderSummary, Page } from "@/lib/types";
+import type { Credit, Invoice, InvoiceSummary, Order, OrderSummary, Page } from "@/lib/types";
 
 const TABS = [
   ["SUBMITTED", "Awaiting approval"], ["APPROVED", "Approved · to invoice"], ["INVOICED", "Invoiced · to dispatch"],
@@ -73,6 +73,7 @@ export function OrderReview() {
   const [approved, setApproved] = useState<Record<number, string>>({});
   const [prices, setPrices] = useState<Record<number, string>>({});
   const [reason, setReason] = useState("");
+  const [creditReason, setCreditReason] = useState("");
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -94,6 +95,7 @@ export function OrderReview() {
   const approve = useMutation({
     mutationFn: () => api<Order>(`/sales-orders/${id}/approve`, { body: {
       version: order.data!.version, reason: reason.trim() || null,
+      credit_override_reason: creditReason.trim() || null,
       lines: order.data!.items.map((l) => ({ order_item_id: l.id, quantity_approved: approved[l.id] || "0",
         ...(prices[l.id] !== l.unit_price ? { unit_price: prices[l.id] } : {}) })),
     } }),
@@ -116,6 +118,7 @@ export function OrderReview() {
   if (!order.data) return <ErrorBanner error={order.error} />;
   const o = order.data;
   const reviewing = o.status === "SUBMITTED" && canAct;
+  const creditBlocked = !!o.credit?.exceeds || (approve.error instanceof ApiError && approve.error.code === "credit_limit_exceeded");
   const modified = o.items.some((l) => approved[l.id] !== qty(l.quantity_ordered).replace(/,/g, "") || prices[l.id] !== l.unit_price);
 
   return (
@@ -129,6 +132,13 @@ export function OrderReview() {
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-none" />
           <div><b>Insufficient stock.</b> Approving the full quantity will be refused. Approve what is available
             (pre-filled below, with a reason) or reject / keep the order pending.</div>
+        </div>
+      )}
+      {o.credit?.exceeds && o.status === "SUBMITTED" && (
+        <div className="mb-4 flex gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <ShieldAlert className="mt-0.5 h-4 w-4 flex-none" />
+          <div><b>Over the credit limit by {inr(o.credit.excess)}.</b> Approval will be refused unless you reduce the
+            order, the customer pays first, or you record a credit-override reason (it goes into the audit trail).</div>
         </div>
       )}
       {o.status === "REJECTED" && <ErrorBanner className="mb-4" error={`Rejected: ${o.rejection_reason}`} />}
@@ -174,6 +184,12 @@ export function OrderReview() {
                 hint={modified ? "Quantities or prices differ from the order; this goes into the audit trail." : "Only needed if you change a quantity or price."}>
                 <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Only 88 packets available; balance to follow" />
               </Field>
+              {creditBlocked && (
+                <Field label="Credit-override reason" hint="Only needed if the approved value still exceeds the credit limit. Recorded in the audit trail.">
+                  <input className="input" value={creditReason} onChange={(e) => setCreditReason(e.target.value)}
+                    placeholder="e.g. Owner approved; cheque for the old balance collected today" />
+                </Field>
+              )}
               <ErrorBanner error={approve.error} />
               <div className="flex flex-wrap gap-2">
                 <Button variant="accent" icon={<CheckCircle2 className="h-4 w-4" />} loading={approve.isPending}
@@ -194,6 +210,7 @@ export function OrderReview() {
               <p className="mt-3 text-xs text-navy-400">Customer state {o.customer_state_code}; factory in Tamil Nadu (33).</p>
             </div>
           </Card>
+          {o.credit && <CreditCard c={o.credit} />}
           <Card title="Timeline" className="p-0">
             <ul className="space-y-2 p-4 text-sm">
               <li>Created {date(o.order_date)}</li>
@@ -239,5 +256,32 @@ export function OrderReview() {
         <Field label="Reason"><input className="input" autoFocus value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} /></Field>
       </Modal>
     </>
+  );
+}
+
+/** Credit position from the server (at the ordered quantities). */
+function CreditCard({ c }: { c: Credit }) {
+  const row = (k: string, v: ReactNode, cls?: string) => (
+    <div className={cx("flex justify-between", cls)}><span className="text-navy-400">{k}</span><span className="num">{v}</span></div>
+  );
+  return (
+    <Card title={<span className="flex items-center gap-2"><Wallet className="h-4 w-4 text-navy-400" />Credit check</span>}
+      actions={c.unlimited ? <Badge>No limit</Badge> : c.exceeds ? <Badge tone="red">Over limit</Badge> : <Badge tone="green">Within limit</Badge>}>
+      <div className="space-y-1.5 p-4 text-sm">
+        {row("Credit limit", c.unlimited ? "None" : inr(c.limit))}
+        {!c.unlimited && row("Available before this order", inr(c.available))}
+        {row("Outstanding (net of advances)", inr(c.outstanding))}
+        {row("Other approved, not invoiced", inr(c.open_orders))}
+        {row("This order (incl. GST)", inr(c.this_order))}
+        {row("Exposure", inr(c.exposure), "border-t border-navy-100 pt-1.5 font-semibold")}
+        {c.exceeds && row("Over by", inr(c.excess), "font-semibold text-red-700")}
+        {c.overdue !== "0.00" && (
+          <p className="mt-2 flex gap-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-700">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-none" />
+            {inr(c.overdue)} is past the {c.credit_days}-day credit period (oldest {c.oldest_overdue_days} days).
+          </p>
+        )}
+      </div>
+    </Card>
   );
 }

@@ -13,8 +13,8 @@
 
 Latest results (Phase 10):
 
-* SQLite: **246 passed, 9 skipped**. The skipped tests are PostgreSQL-only.
-* PostgreSQL 16.2: **255 passed, 0 skipped**.
+* SQLite: **253 passed, 10 skipped**. The skipped tests are PostgreSQL-only.
+* PostgreSQL 16.2: **263 passed, 0 skipped**.
 
 ## Running
 
@@ -48,6 +48,7 @@ transaction then stays open for 0.5 s before it commits, so the transactions rea
 | Approving Retailer A (150) and Distributor B (120) at once, 238 on hand | One is approved; the other is refused for a shortage. |
 | Two admins approving the same order at once | It is applied once; the second admin gets a clean "order changed" error. |
 | Four invoices raised at once, the first of the financial year | Numbers 00001–00004, distinct and gap-free. |
+| Two 100-packet orders approved at once against a ₹10,000 credit limit (₹5,250 each) | One is approved; the other is refused with `credit_limit_exceeded`. |
 | Two ₹5,000 receipts against a ₹7,875 invoice | ₹5,000 + ₹2,875 are allocated and ₹2,125 is kept as an advance. Never over-allocated. |
 
 **The tests are verified to catch the bugs they target.** When the item row lock is removed from
