@@ -3,7 +3,7 @@ hard-coded figures), filtered by the period [date_from, date_to]."""
 from collections import defaultdict
 from decimal import Decimal
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core import decimals as dec
@@ -378,26 +378,36 @@ def product_costing(db: Session, p: Params) -> Report:
 
 # ---- receivables --------------------------------------------------------------------------
 @report("collections", "Collections", roles=FINANCE, params=("customer_id",),
-        description="Receipts in the period and how they were allocated.")
+        description="Receipts in the period, how they were allocated, and reversals (bounced cheques).")
 def collections(db: Session, p: Params) -> Report:
-    stmt = select(Payment).where(Payment.payment_date.between(p.date_from, p.date_to))
+    """A reversal is shown as its own negative line on the reversal date, so a past month's
+    figures never change and the period total is net cash collected."""
+    in_period = or_(Payment.payment_date.between(p.date_from, p.date_to),
+                    Payment.reversed_on.between(p.date_from, p.date_to))
+    stmt = select(Payment).where(in_period)
     if p.customer_id:
         stmt = stmt.where(Payment.customer_id == p.customer_id)
     rows = []
     for pay in db.scalars(stmt.order_by(Payment.payment_date, Payment.id)):
         allocated = sum((a.amount for a in pay.allocations), ZERO)
-        rows.append({
-            "receipt_no": pay.receipt_no, "date": pay.payment_date, "customer": db.get(Customer, pay.customer_id).name,
-            "mode": pay.mode.value, "reference": pay.reference_no or "", "amount": pay.amount, "allocated": allocated,
-            "advance": pay.amount - allocated,
-            "invoices": ", ".join(db.get(Invoice, a.invoice_id).invoice_no for a in pay.allocations),
-        })
+        base = {"customer": db.get(Customer, pay.customer_id).name, "mode": pay.mode.value,
+                "reference": pay.reference_no or "",
+                "invoices": ", ".join(db.get(Invoice, a.invoice_id).invoice_no for a in pay.allocations)}
+        if p.date_from <= pay.payment_date <= p.date_to:
+            rows.append({**base, "receipt_no": pay.receipt_no, "date": pay.payment_date, "amount": pay.amount,
+                         "allocated": allocated, "advance": pay.amount - allocated,
+                         "note": f"Reversed on {pay.reversed_on:%d-%m-%Y}" if pay.is_reversed else ""})
+        if pay.is_reversed and p.date_from <= pay.reversed_on <= p.date_to:
+            rows.append({**base, "receipt_no": f"{pay.receipt_no} (reversal)", "date": pay.reversed_on,
+                         "amount": -pay.amount, "allocated": -allocated, "advance": -(pay.amount - allocated),
+                         "note": pay.reversal_reason or ""})
+    rows.sort(key=lambda r: (r["date"], r["receipt_no"]))
     return Report("collections", "Collections", [
         C("receipt_no", "Receipt"), C("date", "Date", Kind.DATE), C("customer", "Customer"), C("mode", "Mode"),
         C("reference", "Reference"), C("amount", "Amount", Kind.MONEY, True),
         C("allocated", "Allocated", Kind.MONEY, True), C("advance", "Advance", Kind.MONEY, True),
-        C("invoices", "Against invoices"),
-    ], rows, _period(p))
+        C("invoices", "Against invoices"), C("note", "Note"),
+    ], rows, _period(p), ["Reversed receipts appear twice: the receipt, and a negative reversal line on the reversal date."])
 
 
 @report("outstanding-ageing", "Customer outstanding and ageing", roles=FINANCE, params=("customer_id",),

@@ -5,7 +5,7 @@ packaged-snacks manufacturer:
 **Sales → Order Verification → GST Invoice → Dispatch → Inventory → Production → Costing → Monthly Audit Reports.**
 
 > Status: **complete prototype (Phase 10)**. All 15 reports, every role's screens and the full
-> mandatory benchmark work end to end. **263 tests pass on PostgreSQL 16** (253 on SQLite, plus 10
+> mandatory benchmark work end to end. **275 tests pass on PostgreSQL 16** (264 on SQLite, plus 11
 > that need PostgreSQL), including the whole benchmark over HTTP and real concurrency tests.
 > See [what is done and what is not](docs/PROJECT.md#moscow).
 

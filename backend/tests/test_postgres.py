@@ -304,3 +304,30 @@ def test_simultaneous_approvals_cannot_both_fit_under_one_credit_limit(live: Eng
     results = race(live, _approve_job(a), _approve_job(b))
     assert results.count(OrderStatus.APPROVED) == 1, results
     assert sum(isinstance(r, CreditLimitError) for r in results) == 1, results
+
+
+def test_simultaneous_reversals_of_one_receipt_apply_once(live: Engine):
+    from app.models import Customer
+    from app.models.enums import PaymentMode
+    from app.services import payments
+
+    order_id = _submitted_order(live, "salesman_a", "RET-A", "150")
+    race(live, _approve_job(order_id), hold=0)
+    with Session(live) as s:
+        admin = s.scalars(select(User).where(User.username == "admin")).one()
+        inv = invoicing.create_invoice(s, order_id, None, admin)
+        cust = s.scalars(select(Customer).where(Customer.code == "RET-A")).one()
+        p = payments.record_payment(s, customer_id=cust.id, payment_date=date.today(), amount=D("4000"),
+                                    mode=PaymentMode.CHEQUE, reference_no="CHQ-1", remarks=None, allocations=None,
+                                    actor=admin)
+        s.commit()
+        inv_id, pay_id = inv.id, p.id
+
+    def job(s: Session):
+        admin = s.scalars(select(User).where(User.username == "admin")).one()
+        return payments.reverse_payment(s, pay_id, reason="Cheque bounced", reversal_date=None, actor=admin).id
+
+    results = race(live, job, job)
+    assert results.count(pay_id) == 1 and sum(isinstance(r, DomainError) for r in results) == 1, results
+    with Session(live) as s:
+        assert invoicing.invoice_balance(s, s.get(Invoice, inv_id)) == D("7875.00")

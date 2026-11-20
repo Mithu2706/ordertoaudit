@@ -1,10 +1,10 @@
 /** Admin: record receipts (auto oldest-first or explicit allocation), receipts list, outstanding + ageing. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IndianRupee } from "lucide-react";
+import { IndianRupee, Undo2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Badge, Button, Card, EmptyState, ErrorBanner, Field, PageHeader, Spinner, Stat, Table, Td, Th, useToast,
+  Badge, Button, Card, EmptyState, ErrorBanner, Field, Modal, PageHeader, Spinner, Stat, Table, Td, Th, cx, useToast,
 } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -26,6 +26,7 @@ export default function PaymentsPage() {
   const [payDate, setPayDate] = useState(today());
   const [manual, setManual] = useState(false);
   const [alloc, setAlloc] = useState<Record<number, string>>({});
+  const [reversing, setReversing] = useState<Payment | null>(null);
 
   const customers = useQuery({ queryKey: ["customers", "all"], queryFn: () => api<Page<Customer>>("/customers", { params: { limit: 200 } }) });
   const receivables = useQuery({ queryKey: ["receivables"], queryFn: () => api<Receivable[]>("/receivables") });
@@ -122,20 +123,73 @@ export default function PaymentsPage() {
       <Card title="Recent receipts" className="mt-4">
         {payments.isLoading ? <Spinner /> : !payments.data?.items.length ? <EmptyState title="No receipts yet" /> : (
           <Table>
-            <thead><tr><Th>Receipt</Th><Th>Date</Th><Th>Customer</Th><Th>Mode</Th><Th>Applied to</Th><Th right>Amount</Th><Th right>Advance</Th></tr></thead>
+            <thead><tr><Th>Receipt</Th><Th>Date</Th><Th>Customer</Th><Th>Mode</Th><Th>Applied to</Th><Th right>Amount</Th><Th right>Advance</Th>{canAct && <Th />}</tr></thead>
             <tbody className="divide-y divide-navy-100">
               {payments.data.items.map((p) => (
-                <tr key={p.id}>
-                  <Td className="font-medium">{p.receipt_no}</Td><Td className="text-navy-400">{date(p.payment_date)}</Td>
+                <tr key={p.id} className={cx(p.reversed_on && "bg-red-50/40")}>
+                  <Td className="font-medium">
+                    <span className={cx(p.reversed_on && "text-navy-400 line-through")}>{p.receipt_no}</span>
+                    {p.reversed_on && (
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs font-normal">
+                        <Badge tone="red">Reversed {date(p.reversed_on)}</Badge>
+                        <span className="whitespace-normal text-navy-400">{p.reversal_reason}</span>
+                      </div>
+                    )}
+                  </Td>
+                  <Td className="text-navy-400">{date(p.payment_date)}</Td>
                   <Td>{p.customer_name}</Td><Td>{label(p.mode)}{p.reference_no && <span className="text-xs text-navy-400"> · {p.reference_no}</span>}</Td>
                   <Td className="text-xs">{p.allocations.map((a) => `${a.invoice_no} (${inr(a.amount)})`).join(", ") || "—"}</Td>
-                  <Td right className="font-medium">{inr(p.amount)}</Td><Td right>{inr(p.unallocated)}</Td>
+                  <Td right className={cx("font-medium", p.reversed_on && "text-navy-400 line-through")}>{inr(p.amount)}</Td><Td right>{inr(p.unallocated)}</Td>
+                  {canAct && (
+                    <Td right>
+                      {!p.reversed_on && (
+                        <Button variant="ghost" size="sm" icon={<Undo2 className="h-3.5 w-3.5" />} onClick={() => setReversing(p)}
+                          aria-label={`Reverse ${p.receipt_no}`}>Reverse</Button>
+                      )}
+                    </Td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </Table>
         )}
       </Card>
+      {reversing && <ReverseDialog payment={reversing} onClose={() => setReversing(null)} />}
     </>
+  );
+}
+
+/** Reverse a receipt (bounced cheque, failed transfer). The server re-opens the invoices it paid. */
+function ReverseDialog({ payment, onClose }: { payment: Payment; onClose: () => void }) {
+  const [reason, setReason] = useState(payment.mode === "CHEQUE" ? `Cheque ${payment.reference_no ?? ""} returned: ` : "");
+  const [when, setWhen] = useState(today());
+  const qc = useQueryClient();
+  const toast = useToast();
+  const reverse = useMutation({
+    mutationFn: () => api<Payment>(`/payments/${payment.id}/reverse`, { body: { reason: reason.trim(), reversal_date: when } }),
+    onSuccess: (p) => { qc.invalidateQueries(); toast(`${p.receipt_no} reversed; the invoices it paid are due again`); onClose(); },
+  });
+  return (
+    <Modal open onClose={onClose} title={`Reverse receipt ${payment.receipt_no}`}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Back</Button>
+        <Button variant="danger" icon={<Undo2 className="h-4 w-4" />} loading={reverse.isPending}
+          disabled={reason.trim().length < 3} onClick={() => reverse.mutate()}>Reverse receipt</Button>
+      </>}>
+      <div className="space-y-3 text-sm">
+        <p className="text-navy-600">
+          {inr(payment.amount)} from <b>{payment.customer_name}</b> ({label(payment.mode)}{payment.reference_no ? ` · ${payment.reference_no}` : ""}, {date(payment.payment_date)}).
+        </p>
+        {payment.allocations.length > 0 && (
+          <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-700">
+            These invoices become due again: {payment.allocations.map((a) => `${a.invoice_no} (${inr(a.amount)})`).join(", ")}.
+          </p>
+        )}
+        <p className="text-xs text-navy-400">The receipt stays on record and in the audit trail. Collections reports show a negative line on the reversal date.</p>
+        <ErrorBanner error={reverse.error} />
+        <Field label="Reason (required)"><input className="input" autoFocus value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Cheque 004512 returned: insufficient funds" /></Field>
+        <Field label="Reversal date"><input type="date" className="input" value={when} min={payment.payment_date} max={today()} onChange={(e) => setWhen(e.target.value)} /></Field>
+      </div>
+    </Modal>
   );
 }

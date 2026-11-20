@@ -117,7 +117,8 @@ end-to-end HTTP test, by the scenario runner on PostgreSQL, and in the UI. Worki
 * **Single company and single warehouse.** No multi-location stock.
 * **No GST portal integration.** That means no e-invoice IRN, no e-way bill and no GSTR export.
   The GST summary report is the hand-off to the accountant.
-* **Out of scope for the prototype:** purchase returns, payment reversal and credit-limit
-  enforcement. All are listed in [PROJECT.md](PROJECT.md#moscow).
+* **Out of scope for the prototype:** purchase returns and re-allocating a receipt. Both are listed in
+  [PROJECT.md](PROJECT.md#moscow). Credit limits and payment reversal (bounced cheques) were
+  added after the first release; see [BILLING.md](BILLING.md).
 * **Single-page app with bearer tokens in browser storage.** That is acceptable behind HTTPS for an
   internal tool. httpOnly cookies with CSRF protection would be the next hardening step.

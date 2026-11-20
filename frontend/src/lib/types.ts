@@ -199,6 +199,9 @@ export interface Payment {
   reference_no: string | null;
   unallocated: Dec;
   allocations: { invoice_id: number; invoice_no: string; amount: Dec }[];
+  reversed_on: string | null;
+  reversal_reason: string | null;
+  reversed_by: number | null;
 }
 
 export interface Receivable {

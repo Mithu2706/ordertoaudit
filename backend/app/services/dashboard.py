@@ -36,8 +36,11 @@ def owner_dashboard(db: Session, today: date | None = None) -> dict:
     gross_total = sum((i.total_amount for i in month_invoices), ZERO)
     credited = Decimal(db.scalar(select(func.coalesce(func.sum(CreditNote.taxable_amount), 0))
                                  .where(CreditNote.credit_note_date.between(month_start, today))) or 0)
-    collected = Decimal(db.scalar(select(func.coalesce(func.sum(Payment.amount), 0))
-                                  .where(Payment.payment_date.between(month_start, today))) or 0)
+    received = Decimal(db.scalar(select(func.coalesce(func.sum(Payment.amount), 0))
+                                 .where(Payment.payment_date.between(month_start, today))) or 0)
+    reversed_ = Decimal(db.scalar(select(func.coalesce(func.sum(Payment.amount), 0))
+                                  .where(Payment.reversed_on.between(month_start, today))) or 0)
+    collected = received - reversed_  # net of bounced cheques reversed this month
     recv = receivables(db, today)
     outstanding = sum((r.outstanding for r in recv), ZERO)
     overdue = sum((amt for r in recv for label, amt in r.buckets.items() if not label.startswith("0-")), ZERO)

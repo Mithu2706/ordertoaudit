@@ -69,7 +69,7 @@ export default function Reports() {
           )}
         </Card>
 
-        <div className="space-y-4 lg:col-span-3">
+        <div className="min-w-0 space-y-4 lg:col-span-3">
           <Card className="p-4">
             <div className="flex flex-wrap items-end gap-3">
               <label><span className="label">From</span><input type="date" className="input" value={from} max={to} onChange={(e) => setFrom(e.target.value)} /></label>

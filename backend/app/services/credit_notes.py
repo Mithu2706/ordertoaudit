@@ -25,7 +25,6 @@ from app.models import (
     CreditNoteItem,
     InvoiceItem,
     Item,
-    PaymentAllocation,
     SalesOrder,
     StockMovement,
     User,
@@ -33,7 +32,7 @@ from app.models import (
 from app.models.enums import CreditNoteReason, DocumentType, InvoiceStatus, MovementType, OrderStatus
 from app.services import audit, numbering
 from app.services.inventory import post_movement
-from app.services.invoicing import credited_amount, get_invoice, invoice_balance
+from app.services.invoicing import allocated_amount, credited_amount, get_invoice, invoice_balance
 
 ZERO = Decimal("0.00")
 QZERO = Decimal("0.0000")
@@ -82,8 +81,7 @@ def create_credit_note(db: Session, *, invoice_id: int, reason_type: CreditNoteR
     # ---- decide quantity / taxable / tax per line -------------------------------------
     plan: list[tuple[InvoiceItem, Decimal, Decimal, Decimal, Decimal, Decimal, Decimal]] = []
     if reason_type == CreditNoteReason.CANCELLATION:
-        if db.scalar(select(func.count()).select_from(PaymentAllocation)
-                     .where(PaymentAllocation.invoice_id == invoice.id)):
+        if allocated_amount(db, invoice.id) > 0:  # receipts still applied (reversed ones don't count)
             raise BusinessRuleError("Payments are allocated to this invoice; it cannot be cancelled")
         dispatched = any(order_lines[it.order_item_id].quantity_dispatched > 0 for it in items.values())
         if dispatched and not restock:

@@ -16,12 +16,14 @@ from decimal import Decimal
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core import decimals as dec
 from app.core.errors import BusinessRuleError, NotFoundError
 from app.models import (
     CreditNote,
     Customer,
     Invoice,
     InvoiceItem,
+    Payment,
     PaymentAllocation,
     Product,
     SalesOrder,
@@ -47,13 +49,16 @@ def get_invoice(db: Session, invoice_id: int, lock: bool = False) -> Invoice:
 
 
 def credited_amount(db: Session, invoice_id: int) -> Decimal:
-    return Decimal(db.scalar(select(func.coalesce(func.sum(CreditNote.total_amount), 0))
-                             .where(CreditNote.invoice_id == invoice_id)) or 0)
+    return dec.money(Decimal(db.scalar(select(func.coalesce(func.sum(CreditNote.total_amount), 0))
+                                       .where(CreditNote.invoice_id == invoice_id)) or 0))
 
 
 def allocated_amount(db: Session, invoice_id: int) -> Decimal:
-    return Decimal(db.scalar(select(func.coalesce(func.sum(PaymentAllocation.amount), 0))
-                             .where(PaymentAllocation.invoice_id == invoice_id)) or 0)
+    """Receipts applied to the invoice; allocations of reversed receipts no longer count."""
+    return dec.money(Decimal(db.scalar(select(func.coalesce(func.sum(PaymentAllocation.amount), 0))
+                                       .join(Payment, Payment.id == PaymentAllocation.payment_id)
+                                       .where(PaymentAllocation.invoice_id == invoice_id,
+                                              Payment.reversed_on.is_(None))) or 0))
 
 
 def invoice_balance(db: Session, invoice: Invoice) -> Decimal:

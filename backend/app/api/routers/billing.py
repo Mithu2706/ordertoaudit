@@ -25,6 +25,7 @@ from app.schemas.billing import (
     InvoiceSummaryOut,
     OpenInvoiceOut,
     PaymentCreate,
+    PaymentReverseIn,
     PaymentOut,
     ReceivableOut,
 )
@@ -92,6 +93,7 @@ def payment_out(db: Session, p: Payment) -> PaymentOut:
         id=p.id, receipt_no=p.receipt_no, customer_id=p.customer_id, customer_name=db.get(Customer, p.customer_id).name,
         payment_date=p.payment_date, amount=p.amount, mode=p.mode, reference_no=p.reference_no, remarks=p.remarks,
         unallocated=pay_svc.unallocated(db, p),
+        reversed_on=p.reversed_on, reversal_reason=p.reversal_reason, reversed_by=p.reversed_by,
         allocations=[AllocationOut(invoice_id=a.invoice_id, invoice_no=db.get(Invoice, a.invoice_id).invoice_no,
                                    amount=a.amount) for a in p.allocations],
     )
@@ -191,6 +193,13 @@ def record_payment(data: PaymentCreate, db: DbSession, actor: Admin, request: Re
         mode=data.mode, reference_no=data.reference_no, remarks=data.remarks, allocations=allocations,
         actor=actor, ip=client_ip(request))
     return payment_out(db, p)
+
+
+@payments.post("/{payment_id}/reverse", response_model=PaymentOut)
+def reverse_payment(payment_id: int, data: PaymentReverseIn, db: DbSession, actor: Admin, request: Request):
+    """Reverse a receipt (bounced cheque, failed transfer). The invoices it paid become due again."""
+    return payment_out(db, pay_svc.reverse_payment(db, payment_id, reason=data.reason, reversal_date=data.reversal_date,
+                                                    actor=actor, ip=client_ip(request)))
 
 
 @receivables.get("", response_model=list[ReceivableOut])

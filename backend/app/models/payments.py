@@ -1,12 +1,16 @@
 """Customer receipts and their allocation to invoices.
 
-Outstanding per invoice = total - credit notes - allocations.
+Outstanding per invoice = total - credit notes - allocations of receipts that are not reversed.
 Unallocated receipt balance = on-account advance.
+
+A receipt is never edited or deleted. A bounced cheque or failed transfer is handled by
+*reversing* it: the row stays, with the reversal date, reason and user, and from then on its
+allocations and advance no longer count.
 """
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, ForeignKey, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, Money, TimestampMixin, enum_col
@@ -15,7 +19,16 @@ from app.models.enums import PaymentMode
 
 class Payment(TimestampMixin, Base):
     __tablename__ = "payments"
-    __table_args__ = (CheckConstraint("amount > 0", name="amount_positive"),)
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="amount_positive"),
+        # A reversal is all-or-nothing, and can't predate the receipt.
+        CheckConstraint(
+            "(reversed_on IS NULL AND reversal_reason IS NULL AND reversed_by IS NULL AND reversed_at IS NULL)"
+            " OR (reversed_on IS NOT NULL AND reversal_reason IS NOT NULL AND reversed_by IS NOT NULL"
+            " AND reversed_at IS NOT NULL AND reversed_on >= payment_date)",
+            name="reversal_complete",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     receipt_no: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
@@ -26,6 +39,14 @@ class Payment(TimestampMixin, Base):
     reference_no: Mapped[str | None] = mapped_column(String(64))  # UTR / cheque no.
     remarks: Mapped[str | None] = mapped_column(String(500))
     received_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    reversed_on: Mapped[date | None] = mapped_column(Date, index=True)  # business date of the reversal
+    reversal_reason: Mapped[str | None] = mapped_column(String(500))
+    reversed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    reversed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    @property
+    def is_reversed(self) -> bool:
+        return self.reversed_on is not None
 
     allocations: Mapped[list["PaymentAllocation"]] = relationship(
         back_populates="payment", cascade="all, delete-orphan"

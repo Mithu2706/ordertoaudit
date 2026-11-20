@@ -9,7 +9,7 @@
   are measured in days since invoice date.
 """
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -21,7 +21,7 @@ from app.models import Customer, Invoice, Payment, PaymentAllocation, User
 from app.models.enums import DocumentType, InvoiceStatus, PaymentMode
 from app.services import audit, numbering
 from app.services.common import paginate
-from app.services.invoicing import invoice_balance
+from app.services.invoicing import allocated_amount, invoice_balance
 from app.services.reference import get_setting
 
 ZERO = Decimal("0.00")
@@ -85,7 +85,40 @@ def record_payment(db: Session, *, customer_id: int, payment_date: date, amount:
 
 
 def unallocated(db: Session, payment: Payment) -> Decimal:
+    """On-account advance left on a receipt (nothing, once it is reversed)."""
+    if payment.is_reversed:
+        return ZERO
     return payment.amount - sum((a.amount for a in payment.allocations), ZERO)
+
+
+def reverse_payment(db: Session, payment_id: int, *, reason: str, reversal_date: date | None, actor: User,
+                    ip: str | None = None) -> Payment:
+    """Reverse a receipt (bounced cheque, failed transfer, keyed in error). The receipt stays on record;
+    its allocations stop counting, so the invoices it paid become due again."""
+    payment = db.scalars(select(Payment).where(Payment.id == payment_id)
+                         .with_for_update().execution_options(populate_existing=True)).first()
+    if payment is None:
+        raise NotFoundError(f"Receipt {payment_id} not found")
+    if payment.is_reversed:
+        raise BusinessRuleError(f"Receipt {payment.receipt_no} was already reversed on {payment.reversed_on}")
+    when = reversal_date or date.today()
+    if when > date.today():
+        raise BusinessRuleError("Reversal date cannot be in the future")
+    if when < payment.payment_date:
+        raise BusinessRuleError(f"Reversal date cannot be before the receipt date ({payment.payment_date})")
+    reason = reason.strip()
+    restored = [{"invoice_id": a.invoice_id, "amount": str(a.amount)} for a in payment.allocations]
+    before = {"reversed_on": None}
+    payment.reversed_on = when
+    payment.reversal_reason = reason
+    payment.reversed_by = actor.id
+    payment.reversed_at = datetime.now(UTC)
+    db.flush()
+    customer = db.get(Customer, payment.customer_id)
+    audit.record(db, user_id=actor.id, action="REVERSE", entity_type="payment", entity_id=payment.id,
+                 before=before, after={"reversed_on": when.isoformat(), "invoices_reopened": restored},
+                 reason=reason, summary=f"{payment.receipt_no}: {payment.amount} from {customer.name} reversed", ip=ip)
+    return payment
 
 
 def list_payments(db: Session, *, customer_id=None, date_from=None, date_to=None, limit=50, offset=0):
@@ -147,7 +180,9 @@ def receivables(db: Session, as_of: date | None = None, customer_id: int | None 
                 r.buckets[labels[idx]] += bal
                 r.invoice_outstanding += bal
                 r.open_invoices.append((inv, bal, days))
-        payments = db.scalars(select(Payment).where(Payment.customer_id == cust.id, Payment.payment_date <= as_of)).all()
+        # Reversed receipts don't count (consistent with invoice balances, which are current).
+        payments = db.scalars(select(Payment).where(Payment.customer_id == cust.id, Payment.payment_date <= as_of,
+                                                    Payment.reversed_on.is_(None))).all()
         r.received = sum((p.amount for p in payments), ZERO)
         r.unallocated = sum((unallocated(db, p) for p in payments), ZERO)
         if invoices or payments:
@@ -156,5 +191,4 @@ def receivables(db: Session, as_of: date | None = None, customer_id: int | None 
 
 
 def _allocated(db: Session, invoice_id: int) -> Decimal:
-    return Decimal(db.scalar(select(func.coalesce(func.sum(PaymentAllocation.amount), 0))
-                             .where(PaymentAllocation.invoice_id == invoice_id)) or 0)
+    return allocated_amount(db, invoice_id)

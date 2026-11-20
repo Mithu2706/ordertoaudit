@@ -43,7 +43,8 @@ export function Button({
 // ---- Layout pieces ---------------------------------------------------------------
 export function Card({ children, className, title, actions }: { children: ReactNode; className?: string; title?: ReactNode; actions?: ReactNode }) {
   return (
-    <section className={cx("rounded-xl border border-navy-100 bg-white shadow-card", className)}>
+    // min-w-0: as a grid/flex item, a wide table inside must scroll within the card, not stretch the page.
+    <section className={cx("min-w-0 rounded-xl border border-navy-100 bg-white shadow-card", className)}>
       {(title || actions) && (
         <header className="flex items-center justify-between gap-3 border-b border-navy-100 px-4 py-3">
           <h2 className="text-sm font-semibold text-navy-800">{title}</h2>

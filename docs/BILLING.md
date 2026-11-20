@@ -95,12 +95,43 @@ exposure = net outstanding (open invoice balances - unallocated advances)
   isn't separately tested.
 * **Who sees it:** the review screen shows the credit position to staff; salesmen don't see it.
 
-## 8. Known limitations
+## 8. Payment reversal (bounced cheques)
 
-* A receipt can't be reversed or re-allocated after it is saved. A
-  correction workflow would be a stretch goal.
+`POST /payments/{id}/reverse` with a reason and an optional reversal date. Only an admin can
+reverse a receipt. The date defaults to today; it can't be in the future or before the receipt.
+
+**What reversal does not do:** the receipt isn't edited or deleted. It keeps its number, amount
+and allocations, and gets a reversal date, reason, user and timestamp. A database CHECK makes
+the reversal all-or-nothing and stops it predating the receipt.
+
+**What reversal changes:**
+* The receipt's allocations stop counting, so the invoices it paid are due again.
+* Its advance (unallocated part) disappears.
+* Outstanding and credit exposure go back up.
+* An invoice whose only receipt was reversed can be cancelled again.
+
+**Reporting:**
+* **Collections report:** the original receipt keeps its line, now marked "Reversed on …". A
+  separate negative line is added on the reversal date, with the reason. A past month's figures
+  never change, and each period's total is net cash collected.
+* **Dashboard:** "Collected this month" is receipts dated this month minus reversals dated this month.
+* **Audit trail:** a `REVERSE` entry records the reason and the invoices that were re-opened.
+
+**Rules:**
+* A receipt can be reversed only once. Two admins reversing it at the same moment still apply it
+  once, because the receipt row is locked (tested on PostgreSQL).
+* After a bounce, the customer simply pays again with a new receipt, which is allocated
+  oldest-first as usual.
+* Bank charges for a bounced cheque aren't recorded. Raise them on a separate invoice or credit
+  note if needed.
+
+## 9. Known limitations
+
+* A receipt can't be re-allocated to different invoices after it is saved. Reverse it and
+  record a new one instead.
 * Ageing "as of" a past date uses invoices dated up to that date, but
-  their *current* balances.
+  their *current* balances. Reversed receipts are left out entirely, even if they were reversed
+  after that date.
 * Invoices are created only from approved orders, one live invoice per
   order (re-billing after a cancellation needs a new order).
 * E-invoicing (IRN/QR) and e-way bills are out of scope.

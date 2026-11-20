@@ -163,6 +163,11 @@ class AllocationIn(Schema):
     amount: MoneyIn
 
 
+class PaymentReverseIn(Schema):
+    reason: str = Field(min_length=3, max_length=500, description="e.g. Cheque 123456 returned: insufficient funds")
+    reversal_date: date | None = Field(default=None, description="Default today; not before the receipt date")
+
+
 class PaymentCreate(Schema):
     customer_id: int
     payment_date: date | None = None
@@ -197,6 +202,9 @@ class PaymentOut(OutSchema):
     remarks: str | None
     unallocated: Decimal
     allocations: list[AllocationOut]
+    reversed_on: date | None = None
+    reversal_reason: str | None = None
+    reversed_by: int | None = None
 
 
 # ---- receivables ------------------------------------------------------------------------

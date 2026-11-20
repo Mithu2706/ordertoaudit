@@ -74,7 +74,7 @@ Full schema: `/api/docs`.
 | `POST /sales-orders/{id}/approve`, `…/reject` | | ✔ | | | |
 | `POST /sales-orders/{id}/cancel` | own draft/submitted | ✔ | | | |
 | `GET /invoices`, `/invoices/{id}/pdf`, `/dispatches`, `/payments`, `/receivables` | | ✔ | | ✔ | ✔ |
-| `POST /invoices`, `/invoices/{id}/credit-notes`, `/dispatches`, `/payments` | | ✔ | | | |
+| `POST /invoices`, `/invoices/{id}/credit-notes`, `/dispatches`, `/payments`, `/payments/{id}/reverse` | | ✔ | | | |
 | `GET /reports`, `/reports/{key}` | customer-sales (own) | ✔ | stock & production | ✔ | ✔ |
 
 `tests/test_permissions.py` checks **every cell** of this table: each role
