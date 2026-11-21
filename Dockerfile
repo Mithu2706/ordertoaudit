@@ -31,7 +31,7 @@ COPY --from=frontend /build/dist ./static
 # Strip Windows line endings in case the repo was checked out with CRLF, then drop root.
 RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh \
     && chmod +x /usr/local/bin/entrypoint.sh \
-    && useradd --system --uid 10001 --home-dir /app app \
+    && useradd --uid 10001 --home-dir /app --no-create-home --shell /usr/sbin/nologin app \
     && chown -R app /app
 USER app
 

@@ -19,9 +19,10 @@ docker compose up --build -d
 Open <http://localhost:8000> and sign in with a [demo account](#demo-credentials). By default the
 benchmark is pre-run through production (steps 1–3), ready for the
 [demo script](docs/DEMO_SCRIPT.md). Details, options and backups:
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Docker was not available in the development
-environment, so the container build is the one step that has not been run. Everything the
-containers do was verified outside Docker ([details](docs/DEPLOYMENT.md#what-has-been-verified)).
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). The stack has been built and run end to end, and the
+benchmark checked against the running containers ([details](docs/DEPLOYMENT.md#what-has-been-verified)).
+On Windows it also runs on Docker Engine inside WSL2, with no Docker Desktop needed
+([how](docs/DEPLOYMENT.md#docker-on-windows-without-docker-desktop)).
 
 ## Stack
 

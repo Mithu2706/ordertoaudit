@@ -13,10 +13,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        // Vendor libraries in their own long-cached chunks; app code changes don't re-download them.
+        // Vendor libraries in long-cached chunks. Recharts is left out on purpose: it is pulled
+        // into the lazy dashboard/production chunks only, so other roles never download it.
         manualChunks: {
           react: ["react", "react-dom", "react-router-dom", "@tanstack/react-query"],
-          charts: ["recharts"],
           ui: ["framer-motion", "lucide-react"],
         },
       },

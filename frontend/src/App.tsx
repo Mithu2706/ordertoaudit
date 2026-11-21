@@ -1,20 +1,33 @@
-import type { ReactNode } from "react";
+import { Suspense, lazy, type ComponentType, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Spinner } from "@/components/ui";
 import { HOME, useAuth } from "@/lib/auth";
 import type { Role } from "@/lib/types";
 import LoginPage from "@/pages/LoginPage";
-import MasterData from "@/pages/masters/MasterData";
-import { InvoiceDetail, InvoiceList } from "@/pages/admin/Invoices";
-import { ApprovalQueue, OrderReview } from "@/pages/admin/Orders";
-import PaymentsPage from "@/pages/admin/Payments";
-import Dashboard from "@/pages/owner/Dashboard";
-import { RunDetail, RunList } from "@/pages/production/Production";
-import { CustomerHistory, MyOrders, NewOrder, SalesOrderDetail } from "@/pages/sales/Sales";
-import AuditLog from "@/pages/shared/AuditLog";
-import { Boms, Purchases, Stock } from "@/pages/shared/Operations";
-import Reports from "@/pages/shared/Reports";
+
+// Each page group is its own chunk, so a role downloads only the screens it uses
+// (e.g. salesmen never load the charts library used by the dashboard and production).
+const page = <M extends Record<string, unknown>>(load: () => Promise<M>, name: keyof M) =>
+  lazy(() => load().then((m) => ({ default: m[name] as ComponentType })));
+const MasterData = page(() => import("@/pages/masters/MasterData"), "default");
+const InvoiceList = page(() => import("@/pages/admin/Invoices"), "InvoiceList");
+const InvoiceDetail = page(() => import("@/pages/admin/Invoices"), "InvoiceDetail");
+const ApprovalQueue = page(() => import("@/pages/admin/Orders"), "ApprovalQueue");
+const OrderReview = page(() => import("@/pages/admin/Orders"), "OrderReview");
+const PaymentsPage = page(() => import("@/pages/admin/Payments"), "default");
+const Dashboard = page(() => import("@/pages/owner/Dashboard"), "default");
+const RunList = page(() => import("@/pages/production/Production"), "RunList");
+const RunDetail = page(() => import("@/pages/production/Production"), "RunDetail");
+const MyOrders = page(() => import("@/pages/sales/Sales"), "MyOrders");
+const NewOrder = page(() => import("@/pages/sales/Sales"), "NewOrder");
+const SalesOrderDetail = page(() => import("@/pages/sales/Sales"), "SalesOrderDetail");
+const CustomerHistory = page(() => import("@/pages/sales/Sales"), "CustomerHistory");
+const AuditLog = page(() => import("@/pages/shared/AuditLog"), "default");
+const Purchases = page(() => import("@/pages/shared/Operations"), "Purchases");
+const Stock = page(() => import("@/pages/shared/Operations"), "Stock");
+const Boms = page(() => import("@/pages/shared/Operations"), "Boms");
+const Reports = page(() => import("@/pages/shared/Reports"), "default");
 
 /** Route guard: must be signed in, and (optionally) have one of `roles`. UX only — the API enforces too. */
 function Guard({ roles, children }: { roles?: Role[]; children: ReactNode }) {
@@ -23,7 +36,7 @@ function Guard({ roles, children }: { roles?: Role[]; children: ReactNode }) {
   if (loading) return <Spinner />;
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   if (roles && !roles.includes(user.role)) return <Navigate to={HOME[user.role]} replace />;
-  return <>{children}</>;
+  return <Suspense fallback={<Spinner />}>{children}</Suspense>;
 }
 
 function Home() {

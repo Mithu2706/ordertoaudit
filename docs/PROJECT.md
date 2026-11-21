@@ -97,6 +97,5 @@ Status: ✅ done and tested · 🟡 partial · ❌ not done
 * JWTs are kept in `localStorage`. httpOnly cookies with CSRF protection would be the hardening step for internet exposure.
 * The JWT has no refresh token. Users sign in again after 8 hours (configurable).
 * Recharts 2.x is in maintenance mode. It works, but upgrading to v3 is a future task.
-* The Docker image and Compose file were written and checked by running the same commands
-  outside Docker (see [DEPLOYMENT.md](DEPLOYMENT.md#what-has-been-verified)), but **`docker compose up` itself has not
-  been run** in the development environment, because Docker isn't installed there.
+* The Compose stack has been verified on Docker Engine in WSL2
+  ([DEPLOYMENT.md](DEPLOYMENT.md#what-has-been-verified)), not on Docker Desktop or a Linux server.

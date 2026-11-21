@@ -109,21 +109,50 @@ For development, with hot reload on two ports, see the [README](../README.md#bac
 
 ## What has been verified
 
-Docker is **not installed** in the development environment, so `docker compose up` itself
-has not been run. Everything the containers do was run outside Docker, on PostgreSQL 16.2:
+`docker compose up --build` has been run end to end: Docker Engine 29.1 with Compose 2.40,
+inside WSL2 Ubuntu 24.04 on Windows 11, `SEED=scenario`, `APP_PORT=8080`.
 
 | Check | Result |
 |---|---|
-| `npm ci` + `npm run build` (the image's stage 1) | ✅ builds, no warnings |
-| `python -m app.prepare` on an empty database with `SEED=scenario` | ✅ migrates, runs benchmark steps 1–3 |
-| `app.prepare` run again (container restart) | ✅ no-op: "Scenario skipped" |
-| `app.prepare` with an unreachable database | ✅ waits, then one clear error line, exit code 1 |
-| `app.prepare` with an invalid `SEED` | ✅ clear error, exit code 2 |
-| App with `APP_ENV=production` and the example JWT secret | ✅ refuses to start |
-| `uvicorn --workers 2` with `STATIC_DIR` | ✅ SPA, deep links (`/sales/new` reload), assets, `/api/*`; JSON 404 for unknown API paths |
-| Sign-in and salesman screens on that server, in a browser | ✅ no console errors |
-| SPA serving rules and the production guard | ✅ `tests/test_deployment.py` |
+| Image build (Node 20 Alpine `npm ci` + Vite build, Python 3.11 slim runtime) | ✅ builds first time, no warnings from the project |
+| `db` health check, then `app` waits for it (`depends_on: service_healthy`) | ✅ |
+| First start: migrations 0001–0004, then benchmark steps 1–3 | ✅ |
+| `app` health check (`/api/health`) | ✅ healthy |
+| Benchmark steps 4–7 driven over HTTP from the Windows host against the container | ✅ 17 of 17 checks match: stock, invoice ₹7,875, PDF, FG 88, shortage 32, refused full approval, outstanding ₹3,875, dashboard, GST summary CSV/Excel/PDF |
+| SPA deep link `/sales/new`, JSON 404 for an unknown API path, 401 without a token | ✅ |
+| Dashboard in a browser from the container | ✅ no console errors; the charts chunk loads only on that page |
+| Data survives a container restart and a full VM restart (the `pgdata` volume) | ✅ restarts log "Scenario skipped" |
+| App runs as a non-root user | ✅ `app`, UID 10001 |
+| Database port not published to the host | ✅ |
 
-Not verified: the Docker build itself (base images, `npm ci` inside Alpine, file permissions
-for the non-root user), the Compose health checks, and the volume. The first
-`docker compose up --build` on a machine with Docker is the remaining check.
+The start-up steps were also checked outside Docker: an unreachable database gives one clear
+error line and exit code 1, an invalid `SEED` gives exit code 2, and the example JWT secret
+makes the app refuse to start. `tests/test_deployment.py` covers the SPA serving rules and the
+production guard.
+
+### Docker on Windows without Docker Desktop
+
+That check used Docker Engine installed inside WSL2 Ubuntu, which needs no Docker Desktop
+licence and no Windows changes:
+
+```powershell
+wsl -u root -- apt-get update
+wsl -u root -- apt-get install -y docker.io docker-compose-v2
+wsl -u root -- systemctl enable --now docker
+```
+
+Then run Compose from the repository folder inside WSL:
+
+```powershell
+wsl -u root -- docker compose -f /mnt/c/path/to/order-to-audit-system/docker-compose.yml up -d --build
+```
+
+The app is then at `http://localhost:<APP_PORT>` from Windows.
+
+**Keep WSL running.** WSL stops its VM a few seconds after the last WSL process exits, and Docker
+stops with it. The containers come back (`restart: unless-stopped`) the next time WSL starts.
+To keep the app up, either leave a WSL terminal open or run this in a separate window:
+
+```powershell
+wsl -u root -- sleep infinity
+```
