@@ -100,6 +100,20 @@ on PostgreSQL. It deploys with one `docker compose up`."**
 
 ---
 
+## Recorded version
+
+`frontend/demo/record-demo.ts` drives this whole script in a real browser and records it, with
+on-screen captions instead of narration (about 4 minutes, 1280×720, .webm). To re-record on a
+fresh stack:
+
+```powershell
+cd frontend
+npx playwright install ffmpeg      # once: Playwright's video encoder (~1.3 MB)
+$env:E2E_BASE_URL = "http://localhost:8080"; npx playwright test -c demo/demo.config.ts
+```
+
+The video is saved to `demo-video/annapoorna-order-to-audit-demo.webm` (git-ignored).
+
 ## Backup lines (if asked)
 * **Some flour arrived damp. Can it go back?** Production → **Material receipts** → open the purchase
   → **Return goods**. A debit note (DN/…) is created at the bill rate with GST, and the flour leaves

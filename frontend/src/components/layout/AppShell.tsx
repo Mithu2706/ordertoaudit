@@ -3,7 +3,7 @@ import {
   PlusCircle, ScrollText, ShoppingCart, Truck, Warehouse, X, type LucideIcon,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { cx } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import type { Role } from "@/lib/types";
@@ -92,6 +92,10 @@ function NavLinks({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => 
 
 export function AppShell({ children }: { children?: ReactNode }) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  // Explicit sign-out: go to the sign-in page WITHOUT remembering this page, so the next person
+  // lands on their own home page (the "come back here" redirect is only for expired sessions).
+  const signOut = () => { navigate("/login", { replace: true }); logout(); };
   const [open, setOpen] = useState(false);
   if (!user) return null;
   const items = NAV[user.role];
@@ -104,7 +108,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       <div className="mt-auto rounded-lg bg-white/5 p-3">
         <div className="truncate text-sm font-medium text-white">{user.full_name}</div>
         <div className="text-xs text-navy-200">{ROLE_LABEL[user.role]}</div>
-        <button onClick={logout} className="mt-2 flex items-center gap-1.5 text-xs text-navy-200 hover:text-white">
+        <button onClick={signOut} className="mt-2 flex items-center gap-1.5 text-xs text-navy-200 hover:text-white">
           <LogOut className="h-3.5 w-3.5" /> Sign out
         </button>
       </div>
@@ -122,7 +126,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           <button onClick={() => setOpen(true)} className="rounded p-1.5 text-white" aria-label="Open menu"><Menu className="h-5 w-5" /></button>
         )}
         {isSalesman && (
-          <button onClick={logout} className="flex items-center gap-1 text-xs text-navy-200" aria-label="Sign out"><LogOut className="h-4 w-4" /></button>
+          <button onClick={signOut} className="flex items-center gap-1 text-xs text-navy-200" aria-label="Sign out"><LogOut className="h-4 w-4" /></button>
         )}
       </header>
 

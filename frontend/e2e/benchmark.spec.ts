@@ -126,4 +126,10 @@ test("session: the token is never readable by page scripts, and signing out ends
   await page.getByRole("button", { name: /Sign out/ }).click();
   await expect(page).toHaveURL(/\/login/);
   expect(await page.evaluate(async () => (await fetch("/api/auth/me")).status)).toBe(401);
+
+  // The next person to sign in lands on their own home page, not the page the admin left.
+  await page.getByLabel("Username").fill("owner");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
 });
