@@ -98,11 +98,37 @@ the document, so numbers are unique under concurrency and **gap-free**: a
 rolled-back document does not burn a number. The financial year runs
 April–March (`2026-11-18` falls in `2026-27`).
 
-## 8. Known limitations
+## 8. Purchase returns (debit notes)
 
-* Row locks are a no-op on SQLite (the test database), where writes are
-  already serialised. The concurrency guarantee therefore relies on
-  PostgreSQL `FOR UPDATE`, which is not yet exercised by an automated
-  concurrent test.
-* Purchase returns are not implemented yet (the `PURCHASE_RETURN` movement
-  type exists in the schema).
+`POST /purchases/{id}/returns` sends goods back to the supplier against a posted purchase.
+Admins and production supervisors can do it. Each return is a debit note numbered
+`DN/2026-27/00001`, created and posted in one step, and never edited or deleted.
+
+**Limits**
+* Per purchase line, you can return at most what was received minus earlier returns.
+* The purchase row is locked, so two simultaneous returns can't over-return. This is tested on
+  PostgreSQL, and the test fails without the lock.
+* The return date can't be in the future or before the goods were received.
+* Count units (pieces) must be whole.
+
+**Stock:** one `PURCHASE_RETURN` movement per line, through `post_movement`. That means no
+negative stock, a unique posting key, and valuation at the current weighted-average cost like
+every issue. That value is stored on the return as `stock_value`.
+
+**What the supplier is debited:** the original bill rate with the same GST split (CGST + SGST,
+or IGST). Returning the rest of a line uses its exact remaining taxable and tax amounts, so all
+the returns together never differ from the bill by a paisa.
+
+**Why the two amounts can differ:** the supplier debit (bill rate) and the stock value (average
+cost) won't match when prices have moved. Example from the benchmark: 10 kg of flour is debited
+at ₹45, which is ₹450, but leaves stock at the ₹43.125 average, which is ₹431.25. The average
+cost of the remaining stock doesn't change. Posting the ₹18.75 difference to the books is the
+accountant's job; this system doesn't keep a general ledger.
+
+**Reports:** the purchase register shows returns as negative lines, so input GST is net of
+returns. The stock ledger shows each `PURCHASE_RETURN` movement with its DN number.
+
+## 9. Known limitations
+
+* Row locks are a no-op on SQLite (the fast test database), where writes are already
+  serialised. Concurrency is tested on PostgreSQL (`tests/test_postgres.py`).

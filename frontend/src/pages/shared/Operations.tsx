@@ -1,6 +1,6 @@
 /** Purchases (material receipts), stock balances with stock card, and BOM viewer. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, PackageCheck, Plus, Send, Trash2 } from "lucide-react";
+import { AlertTriangle, PackageCheck, Plus, Send, Trash2, Undo2 } from "lucide-react";
 import { useState } from "react";
 import {
   Badge, Button, Card, EmptyState, ErrorBanner, Field, Modal, PageHeader, Spinner, StatusBadge, Table, Td, Th, cx, useToast,
@@ -15,7 +15,12 @@ interface Material { id: number; code: string; name: string; base_unit_code: str
 interface PurchaseSummary { id: number; purchase_no: string; supplier_id: number; supplier_invoice_no: string; received_date: string; status: string; taxable_amount: string; total_amount: string }
 interface Purchase extends PurchaseSummary {
   supplier_name: string; cgst_amount: string; sgst_amount: string; igst_amount: string;
-  items: { id: number; item_code: string; item_name: string; quantity: string; unit_code: string; base_quantity: string; base_unit_code: string; rate: string; taxable_amount: string; tax_amount: string; line_total: string }[];
+  items: { id: number; item_code: string; item_name: string; quantity: string; unit_code: string; base_quantity: string; base_unit_code: string; rate: string; taxable_amount: string; tax_amount: string; line_total: string; returned_quantity: string }[];
+}
+interface PurchaseReturn {
+  id: number; return_no: string; return_date: string; reason: string; taxable_amount: string; cgst_amount: string;
+  sgst_amount: string; igst_amount: string; total_amount: string; stock_value: string;
+  items: { purchase_item_id: number; item_name: string; quantity: string; unit_code: string; line_total: string }[];
 }
 interface Movement { id: number; movement_date: string; movement_type: string; reference_no: string; quantity: string; unit_code: string; entered_quantity: string; entered_unit_code: string; unit_cost: string; value: string; balance_after: string; value_after: string; remarks: string | null }
 interface Ledger { item_code: string; item_name: string; unit_code: string; opening_quantity: string; total_in: string; total_out: string; closing_quantity: string; closing_value: string; movements: Movement[] }
@@ -39,6 +44,9 @@ export function Purchases() {
   const raws = useQuery({ queryKey: ["raw-materials"], queryFn: () => api<Page<Material>>("/raw-materials", { params: { active: true, limit: 200 } }) });
   const packs = useQuery({ queryKey: ["packaging-materials"], queryFn: () => api<Page<Material>>("/packaging-materials", { params: { active: true, limit: 200 } }) });
   const detail = useQuery({ queryKey: ["purchase", view], enabled: !!view, queryFn: () => api<Purchase>(`/purchases/${view}`) });
+  const returns = useQuery({ queryKey: ["purchase-returns", view], enabled: !!view && detail.data?.status === "POSTED",
+    queryFn: () => api<PurchaseReturn[]>(`/purchases/${view}/returns`) });
+  const [returning, setReturning] = useState(false);
   const materials = [...(raws.data?.items ?? []), ...(packs.data?.items ?? [])];
   const supplierName = Object.fromEntries((suppliers.data?.items ?? []).map((s) => [s.id, s.name]));
 
@@ -90,7 +98,8 @@ export function Purchases() {
                   <li key={l.id} className="flex justify-between gap-2 py-2">
                     <div><div className="font-medium">{l.item_name}</div>
                       <div className="text-xs text-navy-400">{qty(l.quantity)} {l.unit_code} @ ₹{roundStr(l.rate, 2)}
-                        {l.unit_code !== l.base_unit_code && ` = ${qty(l.base_quantity)} ${l.base_unit_code}`}</div></div>
+                        {l.unit_code !== l.base_unit_code && ` = ${qty(l.base_quantity)} ${l.base_unit_code}`}</div>
+                      {l.returned_quantity !== "0.0000" && <div className="text-xs text-terracotta-700">{qty(l.returned_quantity)} {l.unit_code} returned</div>}</div>
                     <div className="num">{inr(l.taxable_amount)}</div>
                   </li>
                 ))}
@@ -101,11 +110,31 @@ export function Purchases() {
                   [detail.data.cgst_amount, detail.data.sgst_amount, detail.data.igst_amount].find((x) => x !== "0.00") ?? "0.00"))}{detail.data.igst_amount !== "0.00" ? " IGST" : ""}</dd></div>
                 <div className="flex justify-between font-semibold"><dt>Bill total</dt><dd className="num">{inr(detail.data.total_amount)}</dd></div>
               </dl>
+              {detail.data.status === "POSTED" && (
+                <div className="mt-4 border-t border-navy-100 pt-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="label mb-0">Returns to supplier</span>
+                    {canAct && <Button size="sm" variant="secondary" icon={<Undo2 className="h-3.5 w-3.5" />} onClick={() => setReturning(true)}>Return goods</Button>}
+                  </div>
+                  {!returns.data?.length ? <p className="text-xs text-navy-400">None. Damaged or wrong goods can be sent back with a debit note.</p> : (
+                    <ul className="space-y-2">
+                      {returns.data.map((r) => (
+                        <li key={r.id} className="rounded-lg bg-navy-50 p-2 text-xs">
+                          <div className="flex justify-between font-medium"><span>{r.return_no} · {date(r.return_date)}</span><span className="num">−{inr(r.total_amount)}</span></div>
+                          <div className="text-navy-600">{r.items.map((i) => `${qty(i.quantity)} ${i.unit_code} ${i.item_name}`).join(", ")}</div>
+                          <div className="text-navy-400">{r.reason} · stock out at average cost {inr(r.stock_value)}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </Card>
       </div>
 
+      {returning && detail.data && <ReturnDialog purchase={detail.data} onClose={() => setReturning(false)} />}
       <Modal wide open={open} onClose={() => setOpen(false)} title="New purchase (draft)"
         footer={<><Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
           <Button variant="accent" loading={create.isPending} disabled={!form.supplier_id || !form.supplier_invoice_no}
@@ -138,6 +167,53 @@ export function Purchases() {
         </div>
       </Modal>
     </>
+  );
+}
+
+/** Send goods back to the supplier. The server checks quantities and stock, and prices the debit note. */
+function ReturnDialog({ purchase, onClose }: { purchase: Purchase; onClose: () => void }) {
+  const [qtys, setQtys] = useState<Record<number, string>>({});
+  const [reason, setReason] = useState("");
+  const [when, setWhen] = useState(today());
+  const qc = useQueryClient();
+  const toast = useToast();
+  const lines = Object.entries(qtys).filter(([, v]) => /[1-9]/.test(v));
+  const save = useMutation({
+    mutationFn: () => api<PurchaseReturn>(`/purchases/${purchase.id}/returns`, { body: {
+      reason: reason.trim(), return_date: when, items: lines.map(([id, q]) => ({ purchase_item_id: Number(id), quantity: q.trim() })),
+    } }),
+    onSuccess: (r) => { qc.invalidateQueries(); toast(`${r.return_no}: goods returned, supplier debited ${inr(r.total_amount)}`); onClose(); },
+  });
+  return (
+    <Modal wide open onClose={onClose} title={`Return goods · ${purchase.purchase_no} · ${purchase.supplier_name}`}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button variant="danger" icon={<Undo2 className="h-4 w-4" />} loading={save.isPending}
+          disabled={!lines.length || reason.trim().length < 3} onClick={() => save.mutate()}>Create debit note</Button>
+      </>}>
+      <p className="mb-3 text-xs text-navy-400">The supplier is debited at the bill rate with the same GST. The goods leave stock
+        through the ledger at the current average cost. Enter only the quantities going back.</p>
+      <ErrorBanner error={save.error} className="mb-3" />
+      <Table>
+        <thead><tr><Th>Material</Th><Th right>Received</Th><Th right>Returned</Th><Th right>Rate</Th><Th right>Return now</Th></tr></thead>
+        <tbody className="divide-y divide-navy-100">
+          {purchase.items.map((l) => (
+            <tr key={l.id}>
+              <Td>{l.item_name}</Td>
+              <Td right>{qty(l.quantity)} {l.unit_code}</Td>
+              <Td right className="text-navy-400">{qty(l.returned_quantity)}</Td>
+              <Td right>₹{roundStr(l.rate, 2)}</Td>
+              <Td right><input className="input w-24 text-right" inputMode="decimal" value={qtys[l.id] ?? ""} aria-label={`Return quantity for ${l.item_name}`}
+                onChange={(e) => setQtys((q) => ({ ...q, [l.id]: e.target.value.replace(/[^\d.]/g, "") }))} /></Td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <Field className="sm:col-span-2" label="Reason (required)"><input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. 4 bags damp on arrival, rejected" /></Field>
+        <Field label="Return date"><input type="date" className="input" value={when} min={purchase.received_date} max={today()} onChange={(e) => setWhen(e.target.value)} /></Field>
+      </div>
+    </Modal>
   );
 }
 

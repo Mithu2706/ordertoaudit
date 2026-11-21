@@ -6,10 +6,19 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import MATERIAL_READERS, DbSession, client_ip, require_roles
-from app.models import Item, Purchase, Supplier, Unit, User
+from app.models import Item, Purchase, PurchaseReturn, Supplier, Unit, User
 from app.models.enums import DocumentStatus, RoleCode
 from app.schemas.common import Page
-from app.schemas.purchases import PurchaseIn, PurchaseLineOut, PurchaseOut, PurchaseSummaryOut
+from app.schemas.purchases import (
+    PurchaseIn,
+    PurchaseLineOut,
+    PurchaseOut,
+    PurchaseReturnIn,
+    PurchaseReturnLineOut,
+    PurchaseReturnOut,
+    PurchaseSummaryOut,
+)
+from app.services import purchase_returns as ret_svc
 from app.services import purchases as svc
 
 router = APIRouter(prefix="/purchases", tags=["purchases"])
@@ -32,6 +41,7 @@ def purchase_out(db: Session, p: Purchase) -> PurchaseOut:
                 quantity=li.quantity, unit_code=units[li.unit_id], base_quantity=li.base_quantity,
                 base_unit_code=units[items[li.item_id].base_unit_id], rate=li.rate, taxable_amount=li.taxable_amount,
                 gst_rate=li.gst_rate, tax_amount=li.tax_amount, line_total=li.line_total,
+                returned_quantity=ret_svc.returned(db, li.id)[0],
             )
             for li in p.items
         ],
@@ -79,3 +89,32 @@ def post_purchase(purchase_id: int, db: DbSession, actor: Writer, request: Reque
 def cancel_purchase(purchase_id: int, db: DbSession, actor: Writer, request: Request,
                     reason: Annotated[str, Body(embed=True, min_length=3, max_length=255)]):
     return purchase_out(db, svc.cancel_purchase(db, purchase_id, reason, actor, client_ip(request)))
+
+
+# ---- purchase returns (debit notes) -----------------------------------------------------
+def return_out(db: Session, r: PurchaseReturn) -> PurchaseReturnOut:
+    units = {u.id: u.code for u in db.scalars(select(Unit))}
+    purchase = db.get(Purchase, r.purchase_id)
+    line_units = {li.id: units[li.unit_id] for li in purchase.items}
+    return PurchaseReturnOut(
+        id=r.id, return_no=r.return_no, purchase_id=r.purchase_id, purchase_no=purchase.purchase_no,
+        supplier_id=r.supplier_id, supplier_name=db.get(Supplier, r.supplier_id).name, return_date=r.return_date,
+        reason=r.reason, taxable_amount=r.taxable_amount, cgst_amount=r.cgst_amount, sgst_amount=r.sgst_amount,
+        igst_amount=r.igst_amount, total_amount=r.total_amount, stock_value=r.stock_value, created_by=r.created_by,
+        items=[PurchaseReturnLineOut(
+            purchase_item_id=i.purchase_item_id, item_id=i.item_id, item_code=db.get(Item, i.item_id).code,
+            item_name=db.get(Item, i.item_id).name, quantity=i.quantity, unit_code=line_units[i.purchase_item_id],
+            taxable_amount=i.taxable_amount, tax_amount=i.tax_amount, line_total=i.line_total,
+            stock_value=i.stock_value) for i in r.items],
+    )
+
+
+@router.get("/{purchase_id}/returns", response_model=list[PurchaseReturnOut])
+def list_returns(purchase_id: int, db: DbSession, _: Reader):
+    return [return_out(db, r) for r in ret_svc.list_returns(db, purchase_id)]
+
+
+@router.post("/{purchase_id}/returns", response_model=PurchaseReturnOut, status_code=status.HTTP_201_CREATED)
+def create_return(purchase_id: int, data: PurchaseReturnIn, db: DbSession, actor: Writer, request: Request):
+    """Send goods back to the supplier: a debit note at the purchase rate; stock leaves via the ledger."""
+    return return_out(db, ret_svc.create_return(db, purchase_id, data, actor, client_ip(request)))

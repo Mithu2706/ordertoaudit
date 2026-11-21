@@ -331,3 +331,25 @@ def test_simultaneous_reversals_of_one_receipt_apply_once(live: Engine):
     assert results.count(pay_id) == 1 and sum(isinstance(r, DomainError) for r in results) == 1, results
     with Session(live) as s:
         assert invoicing.invoice_balance(s, s.get(Invoice, inv_id)) == D("7875.00")
+
+
+def test_simultaneous_returns_cannot_send_back_more_than_was_bought(live: Engine):
+    """The 60 kg flour purchase: two returns of 40 kg at once; only one fits."""
+    from app.models import Purchase
+    from app.schemas.purchases import PurchaseReturnIn, PurchaseReturnLineIn
+    from app.services import purchase_returns
+    with Session(live) as s:
+        pur = s.scalars(select(Purchase)).one()
+        pur_id, line_id = pur.id, pur.items[0].id
+
+    def job(s: Session):
+        admin = s.scalars(select(User).where(User.username == "admin")).one()
+        data = PurchaseReturnIn(reason="Damp bags", items=[PurchaseReturnLineIn(purchase_item_id=line_id,
+                                                                                quantity=D("40"))])
+        return purchase_returns.create_return(s, pur_id, data, admin).return_no
+
+    results = race(live, job, job)
+    assert sum(isinstance(r, str) for r in results) == 1, results
+    assert sum(isinstance(r, DomainError) for r in results) == 1, results
+    with Session(live) as s:
+        assert purchase_returns.returned(s, line_id)[0] == D("40.0000")

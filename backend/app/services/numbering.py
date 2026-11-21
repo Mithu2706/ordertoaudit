@@ -23,6 +23,7 @@ PREFIXES: dict[DocumentType, str] = {
     DocumentType.PRODUCTION_RUN: "PRD",
     DocumentType.RECEIPT: "RCP",
     DocumentType.STOCK_ADJUSTMENT: "ADJ",
+    DocumentType.DEBIT_NOTE: "DN",
 }
 
 

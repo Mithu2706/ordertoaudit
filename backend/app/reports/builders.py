@@ -18,6 +18,7 @@ from app.models import (
     ProductionConsumption,
     ProductionRun,
     Purchase,
+    PurchaseReturn,
     State,
     StockMovement,
     Supplier,
@@ -189,12 +190,21 @@ def purchase_register(db: Session, p: Params) -> Report:
                      "gstin": sup.gstin or "Unregistered", "bill_no": pu.supplier_invoice_no,
                      "bill_date": pu.supplier_invoice_date, "taxable": pu.taxable_amount, "cgst": pu.cgst_amount,
                      "sgst": pu.sgst_amount, "igst": pu.igst_amount, "total": pu.total_amount})
+    returns = select(PurchaseReturn).where(PurchaseReturn.return_date.between(p.date_from, p.date_to))
+    for r in db.scalars(returns):
+        sup, pu = db.get(Supplier, r.supplier_id), db.get(Purchase, r.purchase_id)
+        rows.append({"purchase_no": f"{r.return_no} (return)", "received_date": r.return_date, "supplier": sup.name,
+                     "gstin": sup.gstin or "Unregistered", "bill_no": pu.supplier_invoice_no,
+                     "bill_date": pu.supplier_invoice_date, "taxable": -r.taxable_amount, "cgst": -r.cgst_amount,
+                     "sgst": -r.sgst_amount, "igst": -r.igst_amount, "total": -r.total_amount})
+    rows.sort(key=lambda row: (row["received_date"], row["purchase_no"]))
     return Report("purchase-register", "Purchase register", [
         C("purchase_no", "Purchase no"), C("received_date", "Received", Kind.DATE), C("supplier", "Supplier"),
         C("gstin", "GSTIN"), C("bill_no", "Supplier bill"), C("bill_date", "Bill date", Kind.DATE),
         C("taxable", "Taxable", Kind.MONEY, True), C("cgst", "CGST", Kind.MONEY, True),
         C("sgst", "SGST", Kind.MONEY, True), C("igst", "IGST", Kind.MONEY, True), C("total", "Total", Kind.MONEY, True),
-    ], rows, _period(p), ["Stock is valued at the taxable amount; input GST is claimed as credit."])
+    ], rows, _period(p), ["Stock is valued at the taxable amount; input GST is claimed as credit.",
+                         "Purchase returns (debit notes) are negative lines: the input GST on them is reversed."])
 
 
 # ---- stock ------------------------------------------------------------------------------

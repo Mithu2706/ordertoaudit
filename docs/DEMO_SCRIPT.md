@@ -95,12 +95,15 @@ Sign in as **auditor** (read-only).
 
 ### 7:40–8:00 · Close
 **"One set of books from order to audit, with exact decimal money and a ledger the database
-protects. 275 automated tests, including the full benchmark over HTTP and real concurrency tests
+protects. 287 automated tests, including the full benchmark over HTTP and real concurrency tests
 on PostgreSQL. It deploys with one `docker compose up`."**
 
 ---
 
 ## Backup lines (if asked)
+* **Some flour arrived damp. Can it go back?** Production → **Material receipts** → open the purchase
+  → **Return goods**. A debit note (DN/…) is created at the bill rate with GST, and the flour leaves
+  stock through the ledger. Try 61 kg on a 60 kg bill and the server refuses.
 * **A cheque bounced. What now?** Admin → **Payments** → **Reverse** on that receipt, with a reason.
   The invoice it paid is due again, the receipt stays on record marked "Reversed", and the
   collections report shows a negative line on the reversal date. Last month's report doesn't change.

@@ -64,7 +64,7 @@ Full schema: `/api/docs`.
 | `POST /inventory/adjustments` (DAMAGE) | | ✔ | ✔ | | |
 | `POST /inventory/adjustments` (ADJUSTMENT) | | ✔ | | | |
 | `GET /purchases` | | ✔ | ✔ | ✔ | ✔ |
-| `POST/PUT /purchases`, `/post`, `/cancel` | | ✔ | ✔ | | |
+| `POST/PUT /purchases`, `/post`, `/cancel`, `/purchases/{id}/returns` | | ✔ | ✔ | | |
 | `GET /boms`, `GET /production-runs` (incl. `alerts_only`) | | ✔ | ✔ | ✔ | ✔ |
 | `POST /boms`, `/boms/{id}/activate` | | ✔ | ✔ | | |
 | `POST /production-runs`, `PUT …/actuals`, `POST …/post`, `…/cancel` | | ✔ | ✔ | | |

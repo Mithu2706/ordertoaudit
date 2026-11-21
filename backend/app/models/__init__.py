@@ -9,7 +9,7 @@ from app.models.items import Item, PackagingMaterial, Product, RawMaterial
 from app.models.parties import Customer, Supplier
 from app.models.payments import Payment, PaymentAllocation
 from app.models.production import ProductionConsumption, ProductionRun
-from app.models.purchasing import Purchase, PurchaseItem
+from app.models.purchasing import Purchase, PurchaseItem, PurchaseReturn, PurchaseReturnItem
 from app.models.reference import AppSetting, CompanyProfile, DocumentSequence, State, Unit, UnitConversion
 from app.models.sales import Dispatch, DispatchItem, SalesOrder, SalesOrderItem
 
@@ -17,6 +17,6 @@ __all__ = [
     "AppSetting", "AuditLog", "Base", "Bom", "BomItem", "CompanyProfile", "CreditNote", "CreditNoteItem",
     "Customer", "Dispatch", "DispatchItem", "DocumentSequence", "Invoice", "InvoiceItem", "Item",
     "PackagingMaterial", "Payment", "PaymentAllocation", "Product", "ProductionConsumption", "ProductionRun",
-    "Purchase", "PurchaseItem", "RawMaterial", "Role", "SalesOrder", "SalesOrderItem", "State",
+    "Purchase", "PurchaseItem", "PurchaseReturn", "PurchaseReturnItem", "RawMaterial", "Role", "SalesOrder", "SalesOrderItem", "State",
     "StockMovement", "Supplier", "Unit", "UnitConversion", "User",
 ]

@@ -52,6 +52,7 @@ class PurchaseLineOut(OutSchema):
     gst_rate: Decimal
     tax_amount: Decimal
     line_total: Decimal
+    returned_quantity: Decimal = Decimal("0.0000")  # sent back to the supplier (purchase returns)
 
 
 class PurchaseOut(OutSchema):
@@ -84,3 +85,47 @@ class PurchaseSummaryOut(OutSchema):
     status: DocumentStatus
     taxable_amount: Decimal
     total_amount: Decimal
+
+
+# ---- purchase returns (debit notes) -----------------------------------------------------
+class PurchaseReturnLineIn(Schema):
+    purchase_item_id: int
+    quantity: PositiveQty  # in the purchase line's unit
+
+
+class PurchaseReturnIn(Schema):
+    return_date: date | None = None  # default today
+    reason: str = Field(min_length=3, max_length=500)
+    items: list[PurchaseReturnLineIn] = Field(min_length=1, max_length=100)
+
+
+class PurchaseReturnLineOut(OutSchema):
+    purchase_item_id: int
+    item_id: int
+    item_code: str
+    item_name: str
+    quantity: Decimal
+    unit_code: str
+    taxable_amount: Decimal
+    tax_amount: Decimal
+    line_total: Decimal
+    stock_value: Decimal
+
+
+class PurchaseReturnOut(OutSchema):
+    id: int
+    return_no: str
+    purchase_id: int
+    purchase_no: str
+    supplier_id: int
+    supplier_name: str
+    return_date: date
+    reason: str
+    taxable_amount: Decimal
+    cgst_amount: Decimal
+    sgst_amount: Decimal
+    igst_amount: Decimal
+    total_amount: Decimal
+    stock_value: Decimal
+    created_by: int
+    items: list[PurchaseReturnLineOut]
