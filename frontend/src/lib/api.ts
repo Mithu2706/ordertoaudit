@@ -1,10 +1,13 @@
 /**
  * Thin fetch wrapper for the FastAPI backend.
- * - Adds the bearer token.
+ * - The session is an httpOnly cookie set by the server: this code never sees or stores the token.
+ *   Writes echo the readable CSRF cookie in X-CSRF-Token (double-submit), which another site
+ *   cannot do.
  * - Turns the backend's error envelope {error:{code,message,details}} into ApiError.
  * - Money and quantities arrive as exact decimal STRINGS; we never do arithmetic on them here.
  */
-const TOKEN_KEY = "ota.token";
+const CSRF_COOKIE = "ota_csrf";
+const LEGACY_TOKEN_KEY = "ota.token"; // tokens were kept in localStorage before cookie sessions
 
 export class ApiError extends Error {
   constructor(
@@ -17,11 +20,20 @@ export class ApiError extends Error {
   }
 }
 
-export const tokenStore = {
-  get: () => localStorage.getItem(TOKEN_KEY),
-  set: (t: string) => localStorage.setItem(TOKEN_KEY, t),
-  clear: () => localStorage.removeItem(TOKEN_KEY),
-};
+/** True when the browser holds a session (the readable CSRF cookie is set alongside it). */
+export function hasSession(): boolean {
+  return document.cookie.split("; ").some((c) => c.startsWith(`${CSRF_COOKIE}=`));
+}
+
+function csrfToken(): string {
+  const raw = document.cookie.split("; ").find((c) => c.startsWith(`${CSRF_COOKIE}=`));
+  return raw ? decodeURIComponent(raw.slice(CSRF_COOKIE.length + 1)) : "";
+}
+
+/** Remove a token left in localStorage by older versions of the app. */
+export function clearLegacyToken(): void {
+  try { localStorage.removeItem(LEGACY_TOKEN_KEY); } catch { /* storage unavailable */ }
+}
 
 type Options = { method?: string; body?: unknown; form?: Record<string, string>; params?: Record<string, unknown> };
 
@@ -50,8 +62,6 @@ async function raise(res: Response): Promise<never> {
 
 export async function api<T>(path: string, opts: Options = {}): Promise<T> {
   const headers: Record<string, string> = {};
-  const token = tokenStore.get();
-  if (token) headers.Authorization = `Bearer ${token}`;
   let body: BodyInit | undefined;
   if (opts.form) {
     body = new URLSearchParams(opts.form);
@@ -60,15 +70,16 @@ export async function api<T>(path: string, opts: Options = {}): Promise<T> {
     body = JSON.stringify(opts.body);
     headers["Content-Type"] = "application/json";
   }
-  const res = await fetch(buildUrl(path, opts.params), { method: opts.method ?? (body ? "POST" : "GET"), headers, body });
+  const method = opts.method ?? (body ? "POST" : "GET");
+  if (method !== "GET") headers["X-CSRF-Token"] = csrfToken();
+  const res = await fetch(buildUrl(path, opts.params), { method, headers, body, credentials: "same-origin" });
   if (!res.ok) return raise(res);
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
 
-/** Download a protected file (PDF/CSV/XLSX) with the auth header and save it. */
+/** Download a protected file (PDF/CSV/XLSX) with the session cookie and save it. */
 export async function download(path: string, params: Record<string, unknown> = {}): Promise<void> {
-  const token = tokenStore.get();
-  const res = await fetch(buildUrl(path, params), { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  const res = await fetch(buildUrl(path, params), { credentials: "same-origin" });
   if (!res.ok) return raise(res);
   const disposition = res.headers.get("Content-Disposition") ?? "";
   const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "download";

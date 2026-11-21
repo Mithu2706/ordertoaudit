@@ -125,10 +125,26 @@ the reversal all-or-nothing and stops it predating the receipt.
 * Bank charges for a bounced cheque aren't recorded. Raise them on a separate invoice or credit
   note if needed.
 
-## 9. Known limitations
+## 9. Re-allocating a receipt
 
-* A receipt can't be re-allocated to different invoices after it is saved. Reverse it and
-  record a new one instead.
+`POST /payments/{id}/reallocate` (admin) moves a receipt to other open invoices of the same
+customer, for example when it was applied to the wrong bill. You can also use it to free an
+invoice so it can be cancelled.
+
+**Unchanged:** the receipt keeps its number, date and amount.
+
+**Rules:**
+* Each invoice can take at most its balance, ignoring what this receipt pays it now.
+* The new split can't add up to more than the receipt; whatever is left becomes an advance.
+* A reversed receipt can't be re-allocated.
+* The receipt and the customer's invoices are locked while it runs.
+
+**Effect:** what the customer owes overall never changes, only which invoices are paid.
+
+**Audit trail:** a `REALLOCATE` entry records the old split, the new split and the reason.
+
+## 10. Known limitations
+
 * Ageing "as of" a past date uses invoices dated up to that date, but
   their *current* balances. Reversed receipts are left out entirely, even if they were reversed
   after that date.

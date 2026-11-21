@@ -12,7 +12,7 @@
 | Frontend | **React 18 + Vite + TypeScript** | Typed API contracts and fast builds. Large ecosystem, easy to hire for. |
 | UI | **Tailwind, Framer Motion, Lucide, Recharts** | Consistent design tokens, responsive layouts (the salesman screens are phone-first), light animation, icons and charts. |
 | Data fetching | **TanStack Query** | Caching, refetch and invalidation after mutations, without hand-written state management. |
-| Tests | **Pytest** (SQLite fast path and PostgreSQL authoritative run) | 287 tests, including an end-to-end HTTP benchmark and real concurrency tests. |
+| Tests | **Pytest** (SQLite fast path and PostgreSQL authoritative run) | 301 backend tests and 5 browser tests, including an end-to-end HTTP benchmark and real concurrency tests. |
 | Deployment | **Docker Compose** | Two containers: PostgreSQL, and the app serving both the API and the built SPA. One command to run anywhere. |
 
 ## MoSCoW
@@ -51,13 +51,15 @@ Status: ✅ done and tested · 🟡 partial · ❌ not done
 ### Could have
 | Feature | Status |
 |---|---|
-| Stock adjustments with a reason | ✅ API; 🟡 no dedicated UI form |
+| Stock adjustments with a reason | ✅ Stock screen: write-off (admin/production) or count correction (admin) |
 | Credit-limit enforcement at approval | ✅ exposure includes outstanding and approved-not-invoiced orders; audited override with a reason; overdue warning |
 | Payment reversal (bounced cheque, failed transfer) | ✅ receipt kept and marked reversed; invoices re-open; collections show a negative line; audited |
-| Re-allocating a receipt to other invoices | ❌ reverse it and record a new receipt instead |
+| Re-allocating a receipt to other invoices | ✅ within the customer's open invoices; the rest stays as advance; audited |
 | Purchase returns (debit notes) | ✅ against posted purchases, line by line; stock out through the ledger at average cost; supplier debited at bill rate and GST; register shows negative lines |
-| Code-split routes and a smaller first load | 🟡 vendor chunks split; routes are not lazy-loaded |
-| Automated browser (UI) tests | ❌ checked by hand |
+| Code-split routes and a smaller first load | ✅ every page group lazy-loaded; first load ~118 kB gzip; charts only where used |
+| Automated browser (UI) tests | ✅ Playwright: benchmark steps 1–7 and session security, in Chrome |
+| Unit-conversion screen | ✅ Master data → Unit conversions |
+| httpOnly cookie sessions with CSRF protection | ✅ bearer tokens still accepted for API clients |
 
 ### Won't have (this prototype)
 * GST portal integration: e-invoice IRN and QR, e-way bill, GSTR filing exports.
@@ -94,7 +96,6 @@ Status: ✅ done and tested · 🟡 partial · ❌ not done
 
 * Ageing "as of" a past date uses invoices dated up to that date, but with their *current* balances.
 * One live invoice per order. Re-billing after a cancellation needs a new order.
-* JWTs are kept in `localStorage`. httpOnly cookies with CSRF protection would be the hardening step for internet exposure.
 * The JWT has no refresh token. Users sign in again after 8 hours (configurable).
 * Recharts 2.x is in maintenance mode. It works, but upgrading to v3 is a future task.
 * The Compose stack has been verified on Docker Engine in WSL2

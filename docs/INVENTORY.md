@@ -128,7 +128,20 @@ accountant's job; this system doesn't keep a general ledger.
 **Reports:** the purchase register shows returns as negative lines, so input GST is net of
 returns. The stock ledger shows each `PURCHASE_RETURN` movement with its DN number.
 
-## 9. Known limitations
+## 9. Unit conversions
+
+**Master data → Unit conversions** lists and adds conversions. Admins and production supervisors
+can add them.
+
+* **Mass and volume** conversions (kg ↔ g, L ↔ ml) apply to all items.
+* **Conversions between dimensions** (kg ↔ L) need an item, because density differs per item.
+* **Conversions between counted units** (CTN ↔ PKT ↔ PCS) also need an item. These are packing
+  sizes, and 1 carton holds 20 packets of Murukku 200 g but not of every product. The API
+  refuses a global one.
+* **Reverse direction:** you add one direction only. The reverse is derived automatically, and
+  adding it as well is refused.
+
+## 10. Known limitations
 
 * Row locks are a no-op on SQLite (the fast test database), where writes are already
   serialised. Concurrency is tested on PostgreSQL (`tests/test_postgres.py`).

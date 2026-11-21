@@ -1,8 +1,20 @@
 # API & Permissions
 
-Base path `/api`. Auth: `POST /api/auth/login` (form fields `username`,
-`password`) returns a bearer JWT. Send it as `Authorization: Bearer <token>`.
-Full schema: `/api/docs`.
+Base path `/api`. Full schema: `/api/docs`.
+
+**Authentication.** `POST /api/auth/login` takes the form fields `username` and `password`.
+
+* **Browser app:** the response sets an httpOnly, `SameSite=Strict` session cookie
+  (`ota_session`, path `/api`), so page scripts can't read the token. It also sets a readable
+  `ota_csrf` cookie. Every write (POST, PUT, PATCH, DELETE) sent with the cookie must echo that
+  value in an `X-CSRF-Token` header (double-submit); otherwise it gets 403 `csrf_failed`.
+  `POST /api/auth/logout` clears both cookies.
+* **API clients and Swagger:** the response body also contains `access_token`. Send it as
+  `Authorization: Bearer <token>`. Bearer requests need no CSRF header, because browsers never
+  attach that header on their own.
+
+The session cookie is marked `Secure` whenever the request arrived over HTTPS
+(`COOKIE_SECURE=auto`).
 
 ## Conventions
 
@@ -74,7 +86,7 @@ Full schema: `/api/docs`.
 | `POST /sales-orders/{id}/approve`, `…/reject` | | ✔ | | | |
 | `POST /sales-orders/{id}/cancel` | own draft/submitted | ✔ | | | |
 | `GET /invoices`, `/invoices/{id}/pdf`, `/dispatches`, `/payments`, `/receivables` | | ✔ | | ✔ | ✔ |
-| `POST /invoices`, `/invoices/{id}/credit-notes`, `/dispatches`, `/payments`, `/payments/{id}/reverse` | | ✔ | | | |
+| `POST /invoices`, `/invoices/{id}/credit-notes`, `/dispatches`, `/payments`, `/payments/{id}/reverse`, `/payments/{id}/reallocate` | | ✔ | | | |
 | `GET /reports`, `/reports/{key}` | customer-sales (own) | ✔ | stock & production | ✔ | ✔ |
 
 `tests/test_permissions.py` checks **every cell** of this table: each role

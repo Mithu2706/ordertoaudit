@@ -105,3 +105,25 @@ test("step 7: Rs 4,000 from Retailer A leaves Rs 3,875 outstanding; owner and au
   await auditor.goto("/admin/payments");
   await expect(auditor.getByRole("button", { name: "Record receipt" })).toHaveCount(0); // read-only
 });
+
+test("session: the token is never readable by page scripts, and signing out ends it", async ({ browser }) => {
+  const page = await signIn(browser, "admin");
+  const visible = await page.evaluate(() => ({
+    cookies: document.cookie,
+    storage: JSON.stringify({ ...localStorage, ...sessionStorage }),
+  }));
+  expect(visible.cookies).toContain("ota_csrf=");
+  expect(visible.cookies).not.toContain("ota_session"); // httpOnly
+  expect(visible.storage).not.toMatch(/eyJ/); // no JWT in browser storage
+
+  // A write without the CSRF header is refused even though the cookie is sent.
+  const forged = await page.evaluate(async () => (await fetch("/api/suppliers", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code: "SUP-X", name: "Forged", state_code: "33" }),
+  })).status);
+  expect(forged).toBe(403);
+
+  await page.getByRole("button", { name: /Sign out/ }).click();
+  await expect(page).toHaveURL(/\/login/);
+  expect(await page.evaluate(async () => (await fetch("/api/auth/me")).status)).toBe(401);
+});

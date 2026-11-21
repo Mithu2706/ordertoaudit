@@ -58,7 +58,8 @@ Every start step is idempotent, so `docker compose restart app` and upgrades are
 | `APP_PORT` | `8000` | Host port |
 | `WEB_CONCURRENCY` | `2` | Uvicorn worker processes |
 | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | `480` | Session length |
-| `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Reverse proxy addresses trusted for `X-Forwarded-For` (audit-log IPs) |
+| `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Reverse proxy addresses trusted for `X-Forwarded-For` and `X-Forwarded-Proto` (audit-log IPs, Secure cookies) |
+| `COOKIE_SECURE` | `auto` | `auto` marks the session cookie Secure when the request came over HTTPS; `true` or `false` forces it |
 
 For a **real business** (not a demo), use `SEED=reference`. Then create users through the API
 (`POST /api/users` as the owner) and enter master data. Don't create demo accounts.
@@ -80,6 +81,8 @@ To reset the demo, run `docker compose down -v` and then `docker compose up -d`.
 * Put it behind a TLS-terminating reverse proxy (Caddy, nginx, a cloud load balancer). Set
   `FORWARDED_ALLOW_IPS` to the proxy's IP address, so the audit log records the real client IP
   from `X-Forwarded-For`. By default only `127.0.0.1` is trusted, so nobody can spoof the header.
+  The same setting lets the app see `X-Forwarded-Proto: https` and mark the session cookie
+  `Secure`. Alternatively, set `COOKIE_SECURE=true`.
 * Keep the database port unpublished (it is by default) and back up the `pgdata` volume.
 * Use `SEED=reference` and change every default password.
 
@@ -121,6 +124,7 @@ inside WSL2 Ubuntu 24.04 on Windows 11, `SEED=scenario`, `APP_PORT=8080`.
 | Benchmark steps 4–7 driven over HTTP from the Windows host against the container | ✅ 17 of 17 checks match: stock, invoice ₹7,875, PDF, FG 88, shortage 32, refused full approval, outstanding ₹3,875, dashboard, GST summary CSV/Excel/PDF |
 | SPA deep link `/sales/new`, JSON 404 for an unknown API path, 401 without a token | ✅ |
 | Dashboard in a browser from the container | ✅ no console errors; the charts chunk loads only on that page |
+| Playwright browser tests (benchmark steps 1–7, cookie session and CSRF) against a freshly built stack | ✅ 5 of 5 pass |
 | Data survives a container restart and a full VM restart (the `pgdata` volume) | ✅ restarts log "Scenario skipped" |
 | App runs as a non-root user | ✅ `app`, UID 10001 |
 | Database port not published to the host | ✅ |

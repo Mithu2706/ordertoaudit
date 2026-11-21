@@ -5,8 +5,9 @@ packaged-snacks manufacturer:
 **Sales → Order Verification → GST Invoice → Dispatch → Inventory → Production → Costing → Monthly Audit Reports.**
 
 > Status: **complete prototype (Phase 10)**. All 15 reports, every role's screens and the full
-> mandatory benchmark work end to end. **287 tests pass on PostgreSQL 16** (275 on SQLite, plus 12
-> that need PostgreSQL), including the whole benchmark over HTTP and real concurrency tests.
+> mandatory benchmark work end to end. **301 backend tests pass on PostgreSQL 16** (289 on SQLite, plus 12
+> that need PostgreSQL), including the whole benchmark over HTTP and real concurrency tests, plus
+> 5 Playwright browser tests that click through benchmark steps 1–7 in Chrome.
 > See [what is done and what is not](docs/PROJECT.md#moscow).
 
 ## Run it (Docker)
@@ -104,6 +105,13 @@ npm run dev
 Open <http://localhost:5173>. Vite proxies `/api` to the backend on
 `:8000`, so start the API first. `npm run build` type-checks and builds
 the production bundle.
+
+Browser tests (Playwright, uses your installed Chrome) run against a fresh instance with
+benchmark steps 1–3 seeded. See [docs/TESTING.md](docs/TESTING.md#browser-tests-playwright):
+
+```powershell
+$env:E2E_BASE_URL = "http://localhost:8000"; npm run e2e
+```
 
 ## Demo credentials
 

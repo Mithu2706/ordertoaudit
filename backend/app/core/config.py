@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 480
     bcrypt_rounds: int = 12  # tests lower this for speed
     cors_origins: str = "http://localhost:5173"
+    # Browser sessions use an httpOnly cookie. "auto" marks it Secure when the request arrived over
+    # HTTPS (directly or via a trusted proxy's X-Forwarded-Proto); "true"/"false" force it.
+    cookie_secure: str = "auto"
     # "production" turns on start-up safety checks (strong JWT secret).
     app_env: str = "development"
     # Directory with the built frontend (index.html + assets). When set, the API also serves the

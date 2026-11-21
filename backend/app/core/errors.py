@@ -28,6 +28,13 @@ class NotFoundError(DomainError):
     code = "not_found"
 
 
+class CsrfError(DomainError):
+    """A cookie-authenticated write without the matching X-CSRF-Token header."""
+
+    status_code = 403
+    code = "csrf_failed"
+
+
 class ConflictError(DomainError):
     status_code = 409
     code = "conflict"

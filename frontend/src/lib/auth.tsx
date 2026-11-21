@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, tokenStore } from "./api";
+import { api, clearLegacyToken, hasSession } from "./api";
 import type { Role, User } from "./types";
 
 interface AuthState {
@@ -24,30 +24,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Session expired or revoked: forget the user locally (the server already rejected the cookie).
+  const dropSession = useCallback(() => setUser(null), []);
+
+  // Sign out: the server clears the httpOnly cookie, which this code cannot touch itself.
   const logout = useCallback(() => {
-    tokenStore.clear();
     setUser(null);
+    api<void>("/auth/logout", { method: "POST" }).catch(() => { /* already signed out */ });
   }, []);
 
   useEffect(() => {
-    if (!tokenStore.get()) {
+    clearLegacyToken();
+    if (!hasSession()) {
       setLoading(false);
       return;
     }
     api<User>("/auth/me")
       .then(setUser)
-      .catch(() => tokenStore.clear())
+      .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    window.addEventListener("ota:unauthorized", logout);
-    return () => window.removeEventListener("ota:unauthorized", logout);
-  }, [logout]);
+    window.addEventListener("ota:unauthorized", dropSession);
+    return () => window.removeEventListener("ota:unauthorized", dropSession);
+  }, [dropSession]);
 
   const login = useCallback(async (username: string, password: string) => {
-    const res = await api<{ access_token: string; user: User }>("/auth/login", { form: { username, password } });
-    tokenStore.set(res.access_token);
+    // The server sets the session cookie; the returned access_token is for API clients and is ignored here.
+    const res = await api<{ user: User }>("/auth/login", { form: { username, password } });
     setUser(res.user);
     return res.user;
   }, []);

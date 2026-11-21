@@ -13,8 +13,9 @@
 
 Latest results (Phase 10):
 
-* SQLite: **275 passed, 12 skipped**. The skipped tests are PostgreSQL-only.
-* PostgreSQL 16.2: **287 passed, 0 skipped**.
+* SQLite: **289 passed, 12 skipped**. The skipped tests are PostgreSQL-only.
+* PostgreSQL 16.2: **301 passed, 0 skipped**.
+* Browser (Playwright, Chrome): **5 passed**.
 
 ## Running
 
@@ -81,6 +82,28 @@ missing token or wrong password.
 
 ## Not covered
 
-* Browser end-to-end tests are not automated. The UI was checked by hand in Phase 8.
 * Load and performance testing.
-* `docker compose up` itself: Docker isn't installed here. See [DEPLOYMENT.md](DEPLOYMENT.md#what-has-been-verified) for what was verified instead.
+* Browsers other than Chrome. Headless Edge wouldn't start in the development environment.
+
+## Browser tests (Playwright)
+
+`frontend/e2e/benchmark.spec.ts` clicks through the real UI, with one fresh browser context per
+role. The salesman uses a phone-sized viewport.
+
+| Test | What it proves |
+|---|---|
+| Steps 1–3 already posted | Stock screen: flour 120, oil 19.5, pouches 306, Murukku 238 |
+| Steps 4–5 | Salesman orders 150 on a phone. Admin approves, generates the invoice (₹7,875, CGST = SGST ₹187.50) and dispatches. Stock goes to 88 |
+| Step 6 | Distributor B orders 120. The review shows "short by 32", and approving all 120 is refused by the server |
+| Step 7 | ₹4,000 receipt leaves ₹3,875 outstanding. The owner's dashboard and the auditor's GST report agree; the auditor can't record payments |
+| Session security | The token isn't readable by page scripts or kept in storage, a forged write without the CSRF header gets 403, and signing out ends the session |
+
+Run them against a **fresh** instance seeded with benchmark steps 1–3. They use the installed
+Google Chrome, so no browser download is needed:
+
+```powershell
+docker compose down -v; docker compose up -d   # or: SEED=scenario python -m app.prepare on an empty DB
+cd frontend
+$env:E2E_BASE_URL = "http://localhost:8000"
+npm run e2e
+```

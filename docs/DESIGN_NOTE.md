@@ -75,7 +75,9 @@ hand. Any excess is held as an advance. Ageing buckets are a setting.
 
 **Security.**
 * Passwords are hashed with bcrypt.
-* JWTs are signed with HS256, and the algorithm is pinned.
+* JWTs are signed with HS256, and the algorithm is pinned. In the browser the token lives in an
+  httpOnly `SameSite=Strict` cookie that page scripts can't read. Writes must echo a CSRF token in
+  a header (double-submit). API clients use a bearer header instead.
 * The user's role is reloaded from the database on every request, so deactivating a user
   takes effect immediately.
 * Every endpoint declares its allowed roles, and an 80-case test matrix checks them.
@@ -117,9 +119,6 @@ end-to-end HTTP test, by the scenario runner on PostgreSQL, and in the UI. Worki
 * **Single company and single warehouse.** No multi-location stock.
 * **No GST portal integration.** That means no e-invoice IRN, no e-way bill and no GSTR export.
   The GST summary report is the hand-off to the accountant.
-* **Out of scope for the prototype:** re-allocating a receipt (it is listed in
-  [PROJECT.md](PROJECT.md#moscow)). Credit limits, payment reversal (bounced cheques) and purchase
-  returns (debit notes) were added after the first release; see [BILLING.md](BILLING.md) and
-  [INVENTORY.md](INVENTORY.md).
-* **Single-page app with bearer tokens in browser storage.** That is acceptable behind HTTPS for an
-  internal tool. httpOnly cookies with CSRF protection would be the next hardening step.
+* **Added after the first release:** credit limits, payment reversal and re-allocation,
+  purchase returns (debit notes), master-data screens and browser tests. See
+  [BILLING.md](BILLING.md), [INVENTORY.md](INVENTORY.md) and [PROJECT.md](PROJECT.md#moscow).
