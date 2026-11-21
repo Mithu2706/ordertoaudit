@@ -91,6 +91,57 @@ def unallocated(db: Session, payment: Payment) -> Decimal:
     return payment.amount - sum((a.amount for a in payment.allocations), ZERO)
 
 
+def reallocate_payment(db: Session, payment_id: int, *, allocations: list[tuple[int, Decimal]], reason: str,
+                       actor: User, ip: str | None = None) -> Payment:
+    """Move a receipt to different invoices of the same customer (e.g. it was applied to the wrong
+    bill). The receipt itself (number, date, amount) never changes; what is not allocated stays as
+    an advance. Each invoice may take at most its balance, ignoring what this receipt pays it now."""
+    payment = db.scalars(select(Payment).where(Payment.id == payment_id)
+                         .with_for_update().execution_options(populate_existing=True)).first()
+    if payment is None:
+        raise NotFoundError(f"Receipt {payment_id} not found")
+    if payment.is_reversed:
+        raise BusinessRuleError(f"Receipt {payment.receipt_no} is reversed; record a new receipt instead")
+    ids = [i for i, _ in allocations]
+    if len(ids) != len(set(ids)):
+        raise BusinessRuleError("Each invoice may appear only once")
+    allocations = [(i, dec.money(a)) for i, a in allocations]
+    if any(a <= 0 for _, a in allocations):
+        raise BusinessRuleError("Allocation amounts must be positive")
+    if sum((a for _, a in allocations), ZERO) > payment.amount:
+        raise BusinessRuleError(f"Allocations exceed the receipt amount {payment.amount}")
+
+    current = {a.invoice_id: a.amount for a in payment.allocations}
+    # Lock the customer's invoices (same order as record_payment) and compute what each can take.
+    invoices = db.scalars(select(Invoice).where(Invoice.customer_id == payment.customer_id,
+                                                Invoice.status != InvoiceStatus.CANCELLED)
+                          .order_by(Invoice.invoice_date, Invoice.id)
+                          .with_for_update().execution_options(populate_existing=True)).all()
+    can_take = {inv.id: invoice_balance(db, inv) + current.get(inv.id, ZERO) for inv in invoices}
+    numbers = {inv.id: inv.invoice_no for inv in invoices}
+    customer = db.get(Customer, payment.customer_id)
+    for inv_id, amt in allocations:
+        if inv_id not in can_take:
+            raise BusinessRuleError(f"Invoice {inv_id} is not an open invoice of {customer.name}")
+        if amt > can_take[inv_id]:
+            raise BusinessRuleError(f"{numbers[inv_id]} can take at most {can_take[inv_id]} from this receipt",
+                                    {"invoice_id": inv_id, "max": str(can_take[inv_id])})
+    new = dict(allocations)
+    if new == current:
+        raise BusinessRuleError("The allocation is unchanged")
+
+    before = [{"invoice_no": numbers.get(i, str(i)), "amount": str(a)} for i, a in current.items()]
+    payment.allocations.clear()
+    db.flush()  # remove old rows first (one row per receipt and invoice)
+    payment.allocations.extend(PaymentAllocation(invoice_id=i, amount=a) for i, a in allocations)
+    db.flush()
+    after = [{"invoice_no": numbers[i], "amount": str(a)} for i, a in allocations]
+    audit.record(db, user_id=actor.id, action="REALLOCATE", entity_type="payment", entity_id=payment.id,
+                 before={"allocations": before}, after={"allocations": after, "advance": str(unallocated(db, payment))},
+                 reason=reason.strip(), summary=f"{payment.receipt_no}: allocation changed", ip=ip)
+    return payment
+
+
 def reverse_payment(db: Session, payment_id: int, *, reason: str, reversal_date: date | None, actor: User,
                     ip: str | None = None) -> Payment:
     """Reverse a receipt (bounced cheque, failed transfer, keyed in error). The receipt stays on record;

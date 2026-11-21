@@ -1,6 +1,6 @@
 /** Purchases (material receipts), stock balances with stock card, and BOM viewer. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, PackageCheck, Plus, Send, Trash2, Undo2 } from "lucide-react";
+import { AlertTriangle, PackageCheck, Plus, Scale, Send, Trash2, Undo2 } from "lucide-react";
 import { useState } from "react";
 import {
   Badge, Button, Card, EmptyState, ErrorBanner, Field, Modal, PageHeader, Spinner, StatusBadge, Table, Td, Th, cx, useToast,
@@ -227,9 +227,14 @@ export function Stock() {
   const ledger = useQuery({ queryKey: ["ledger", item?.item_id], enabled: !!item, queryFn: () => api<Ledger>(`/inventory/items/${item!.item_id}/ledger`) });
   const rows = (balances.data ?? []).filter((b) => b.item_type === type);
   const lows = (balances.data ?? []).filter((b) => b.low_stock);
+  const { user } = useAuth();
+  const canAdjust = user?.role === "ADMIN" || user?.role === "PRODUCTION";
+  const [adjusting, setAdjusting] = useState(false);
   return (
     <>
-      <PageHeader title="Stock" subtitle="Balances are derived from the stock ledger and valued at weighted-average cost" />
+      <PageHeader title="Stock" subtitle="Balances are derived from the stock ledger and valued at weighted-average cost"
+        actions={canAdjust && <Button variant="secondary" icon={<Scale className="h-4 w-4" />} onClick={() => setAdjusting(true)}>Adjust stock</Button>} />
+      {adjusting && balances.data && <AdjustDialog items={balances.data} isAdmin={user?.role === "ADMIN"} onClose={() => setAdjusting(false)} />}
       {lows.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
           <AlertTriangle className="h-4 w-4" /> <b>Low stock:</b>
@@ -316,5 +321,72 @@ export function Boms() {
         </div>
       )}
     </>
+  );
+}
+
+/** Damage write-off (admin or production) or stock-count correction (admin only), posted to the ledger. */
+function AdjustDialog({ items, isAdmin, onClose }: { items: Balance[]; isAdmin: boolean; onClose: () => void }) {
+  const [itemId, setItemId] = useState("");
+  const [kind, setKind] = useState<"DAMAGE" | "FOUND" | "MISSING">("DAMAGE");
+  const [quantity, setQuantity] = useState("");
+  const [unit, setUnit] = useState("");
+  const [reason, setReason] = useState("");
+  const [when, setWhen] = useState(today());
+  const qc = useQueryClient();
+  const toast = useToast();
+  const item = items.find((i) => i.item_id === Number(itemId));
+  const units = useQuery({ queryKey: ["units"], queryFn: () => api<{ code: string; name: string; dimension: string }[]>("/units"), staleTime: Infinity });
+  const save = useMutation({
+    mutationFn: () => api<{ reference_no: string }>("/inventory/adjustments", { body: {
+      item_id: Number(itemId), kind: kind === "DAMAGE" ? "DAMAGE" : "ADJUSTMENT",
+      quantity: kind === "MISSING" ? `-${quantity}` : quantity, unit_code: unit || item?.unit_code,
+      reason: reason.trim(), movement_date: when,
+    } }),
+    onSuccess: (m) => { qc.invalidateQueries(); toast(`${m.reference_no} posted to the stock ledger`); onClose(); },
+  });
+  return (
+    <Modal open onClose={onClose} title="Adjust stock"
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button variant="accent" icon={<Scale className="h-4 w-4" />} loading={save.isPending}
+          disabled={!itemId || !/[1-9]/.test(quantity) || reason.trim().length < 3} onClick={() => save.mutate()}>Post adjustment</Button>
+      </>}>
+      <div className="space-y-3 text-sm">
+        <ErrorBanner error={save.error} />
+        <Field label="Item">
+          <select className="input" value={itemId} onChange={(e) => { setItemId(e.target.value); setUnit(""); }}>
+            <option value="">Select…</option>
+            {items.map((i) => <option key={i.item_id} value={i.item_id}>{i.item_name} · {qty(i.quantity)} {i.unit_code} on hand</option>)}
+          </select>
+        </Field>
+        <fieldset>
+          <span className="label">What happened</span>
+          <div className="space-y-1.5">
+            {([["DAMAGE", "Damaged / spoilt: write it off", true], ["MISSING", "Stock count found LESS than the books", isAdmin],
+              ["FOUND", "Stock count found MORE than the books", isAdmin]] as const).map(([v, text, allowed]) => (
+              <label key={v} className={cx("flex items-center gap-2", !allowed && "text-navy-200")}>
+                <input type="radio" name="kind" value={v} checked={kind === v} disabled={!allowed} onChange={() => setKind(v)} />
+                {text}{!allowed && " (admin only)"}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <div className="grid grid-cols-3 gap-3">
+          <Field className="col-span-2" label="Quantity"><input className="input" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value.replace(/[^\d.]/g, ""))} /></Field>
+          <Field label="Unit">
+            <select className="input" value={unit || item?.unit_code || ""} onChange={(e) => setUnit(e.target.value)}>
+              {!item && <option value="">—</option>}
+              {(units.data ?? []).map((u) => <option key={u.code} value={u.code}>{u.code}</option>)}
+            </select>
+          </Field>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Field className="col-span-2" label="Reason (required)"><input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Monthly count 30 Nov" /></Field>
+          <Field label="Date"><input type="date" className="input" value={when} max={today()} onChange={(e) => setWhen(e.target.value)} /></Field>
+        </div>
+        <p className="text-xs text-navy-400">Write-offs and shortages leave stock at the weighted-average cost; a surplus comes in at the current
+          average. Stock can never go negative, and the movement is recorded in the ledger and audit trail.</p>
+      </div>
+    </Modal>
   );
 }

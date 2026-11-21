@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, aliased
 
 from app.core.errors import BusinessRuleError, ConflictError, NotFoundError
 from app.models import AppSetting, CompanyProfile, Item, State, Unit, UnitConversion, User
+from app.models.enums import UnitDimension
 from app.schemas.reference import CompanyProfileUpdate, UnitConversionCreate
 from app.services import audit
 from app.services.common import apply_changes, ensure_gstin, ensure_state
@@ -52,6 +53,13 @@ def create_conversion(db: Session, data: UnitConversionCreate, actor: User, ip: 
     if src.dimension != dst.dimension and data.item_id is None:
         raise BusinessRuleError(
             f"Cannot convert {src.dimension.value} to {dst.dimension.value} globally; give an item_id"
+        )
+    # Counted units (CTN, PKT, PCS) relate by packing size, which differs per product:
+    # 1 CTN = 20 PKT for Murukku 200 g but not for every product. Never global.
+    if src.dimension == UnitDimension.COUNT and dst.dimension == UnitDimension.COUNT and data.item_id is None:
+        raise BusinessRuleError(
+            f"{src.code} to {dst.code} is a packing size, which differs per product; choose the item it applies to",
+            {"field": "item_id"},
         )
     item_match = UnitConversion.item_id.is_(None) if data.item_id is None else UnitConversion.item_id == data.item_id
     # Either direction already defined -> refuse (the converter derives the inverse).

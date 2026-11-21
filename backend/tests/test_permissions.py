@@ -27,8 +27,6 @@ MATRIX = [
     ("POST", "/api/packaging-materials", PACK, {R.ADMIN, R.PRODUCTION}),
     ("GET", "/api/products", None, ALL),
     ("POST", "/api/products", PRODUCT, {R.ADMIN}),
-    ("POST", "/api/unit-conversions", {"from_unit_code": "CTN", "to_unit_code": "PCS", "factor": "12"},
-     {R.ADMIN, R.PRODUCTION}),
     ("PATCH", "/api/company", {"phone": "0422-1111111"}, {R.ADMIN, R.OWNER}),
     ("GET", "/api/settings", None, {R.ADMIN, R.PRODUCTION, R.OWNER, R.AUDITOR}),
     ("PUT", "/api/settings/variance_tolerance_pct", {"value": "4"}, {R.ADMIN, R.OWNER}),
@@ -88,3 +86,15 @@ def test_user_cannot_deactivate_self_or_change_own_role(client, make_user):
     h = auth_headers(admin)
     assert client.patch(f"/api/users/{admin.id}", headers=h, json={"is_active": False}).status_code == 422
     assert client.patch(f"/api/users/{admin.id}", headers=h, json={"role": "OWNER"}).status_code in (403, 422)
+
+
+# Unit conversions need an item (packing sizes are per product), so this case creates one first.
+@pytest.mark.parametrize("role", list(R), ids=[r.value for r in R])
+def test_unit_conversion_permissions(client, as_role, role):
+    product = client.post("/api/products", headers=as_role(R.ADMIN), json=PRODUCT).json()
+    res = client.post("/api/unit-conversions", headers=as_role(role),
+                      json={"from_unit_code": "CTN", "to_unit_code": "PKT", "factor": "12", "item_id": product["id"]})
+    if role in {R.ADMIN, R.PRODUCTION}:
+        assert res.status_code == 201, res.text
+    else:
+        assert res.status_code == 403 and res.json()["error"]["code"] == "permission_denied"

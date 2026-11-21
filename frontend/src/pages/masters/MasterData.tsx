@@ -7,7 +7,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Boxes, Building2, Package, Pencil, Plus, Search, Settings2, ShoppingBasket, Store, Truck, Users, type LucideIcon,
+  ArrowRightLeft, Boxes, Building2, Package, Pencil, Plus, Search, Settings2, ShoppingBasket, Store, Truck, Users, type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { NavLink, Navigate, useParams } from "react-router-dom";
@@ -222,9 +222,11 @@ const MASTERS: MasterDef[] = [
 // ---- tabs ----------------------------------------------------------------------------------
 const SETTINGS_TAB = { key: "company", title: "Company & settings", icon: Building2,
   readers: ["ADMIN", "PRODUCTION", "OWNER", "AUDITOR"] as Role[] };
+const UNITS_TAB = { key: "units", title: "Unit conversions", icon: ArrowRightLeft,
+  readers: ["ADMIN", "PRODUCTION", "OWNER", "AUDITOR"] as Role[] };
 
 export function visibleMasterTabs(role: Role) {
-  return [...MASTERS, SETTINGS_TAB].filter((t) => t.readers.includes(role));
+  return [...MASTERS, UNITS_TAB, SETTINGS_TAB].filter((t) => t.readers.includes(role));
 }
 
 export default function MasterData() {
@@ -248,7 +250,7 @@ export default function MasterData() {
           </NavLink>
         ))}
       </nav>
-      {def ? <MasterList key={def.key} def={def} role={role} /> : <CompanyAndSettings role={role} />}
+      {def ? <MasterList key={def.key} def={def} role={role} /> : tab === "units" ? <UnitConversions role={role} /> : <CompanyAndSettings role={role} />}
     </>
   );
 }
@@ -554,5 +556,69 @@ function CompanyForm({ company, lookups, onClose }: { company: Company; lookups:
         ))}
       </form>
     </Modal>
+  );
+}
+
+// ---- unit conversions ----------------------------------------------------------------------
+interface Conversion { id: number; from_unit_code: string; to_unit_code: string; factor: string; item_id: number | null }
+interface ItemRef { id: number; code: string; name: string }
+
+function UnitConversions({ role }: { role: Role }) {
+  const canWrite = role === "ADMIN" || role === "PRODUCTION";
+  const conv = useQuery({ queryKey: ["unit-conversions"], queryFn: () => api<Conversion[]>("/unit-conversions") });
+  const units = useQuery({ queryKey: ["units"], queryFn: () => api<Unit[]>("/units"), staleTime: Infinity });
+  const items = useQuery({ queryKey: ["items-for-units"], queryFn: async () => {
+    const lists = await Promise.all(["/raw-materials", "/packaging-materials", "/products"].map((e) =>
+      api<Page<ItemRef>>(e, { params: { limit: 200 } })));
+    return lists.flatMap((l) => l.items);
+  } });
+  const [form, setForm] = useState({ from: "CTN", to: "PKT", factor: "", item: "" });
+  const toast = useToast();
+  const qc = useQueryClient();
+  const add = useMutation({
+    mutationFn: () => api<Conversion>("/unit-conversions", { body: {
+      from_unit_code: form.from, to_unit_code: form.to, factor: form.factor.trim(), item_id: form.item ? Number(form.item) : null } }),
+    onSuccess: (c) => { qc.invalidateQueries({ queryKey: ["unit-conversions"] }); toast(`1 ${c.from_unit_code} = ${roundStr(c.factor, 4)} ${c.to_unit_code} added`); setForm((f) => ({ ...f, factor: "" })); },
+  });
+  const itemName = (id: number | null) => (id === null ? "All items" : items.data?.find((i) => i.id === id)?.name ?? `Item ${id}`);
+  const unitOpts = (units.data ?? []).map((u) => <option key={u.code} value={u.code}>{u.code} · {u.name}</option>);
+  return (
+    <div className="grid gap-4 xl:grid-cols-3">
+      <Card className="xl:col-span-2" title={<span className="flex items-center gap-2"><ArrowRightLeft className="h-4 w-4 text-navy-400" />Unit conversions</span>}>
+        <p className="border-b border-navy-100 px-4 py-2 text-xs text-navy-400">The reverse direction is derived automatically, and
+          conversions chain (g → kg → …). Packing conversions such as cartons to packets apply to one item.</p>
+        <ErrorBanner error={conv.error} className="m-4" />
+        {conv.isLoading ? <Spinner /> : !conv.data?.length ? <EmptyState title="No conversions" /> : (
+          <Table>
+            <thead><tr><Th>Conversion</Th><Th>Applies to</Th></tr></thead>
+            <tbody className="divide-y divide-navy-100">
+              {conv.data.map((c) => (
+                <tr key={c.id}><Td className="font-medium">1 {c.from_unit_code} = {roundStr(c.factor, 4).replace(/\.?0+$/, "")} {c.to_unit_code}</Td><Td>{itemName(c.item_id)}</Td></tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
+      {canWrite && (
+        <Card title="Add a conversion">
+          <form className="space-y-3 p-4" onSubmit={(e) => { e.preventDefault(); add.mutate(); }}>
+            <ErrorBanner error={add.error} />
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="1 ×"><select className="input" value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })}>{unitOpts}</select></Field>
+              <Field label="equals ×"><select className="input" value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })}>{unitOpts}</select></Field>
+            </div>
+            <Field label="Factor" hint="How many of the second unit make one of the first, e.g. 20."><input className="input num" inputMode="decimal" value={form.factor}
+              onChange={(e) => setForm({ ...form, factor: e.target.value.replace(/[^\d.]/g, "") })} /></Field>
+            <Field label="Applies to" hint="Required for packing (CTN ↔ PKT) and cross-dimension conversions.">
+              <select className="input" value={form.item} onChange={(e) => setForm({ ...form, item: e.target.value })}>
+                <option value="">All items</option>
+                {items.data?.map((i) => <option key={i.id} value={i.id}>{i.name} ({i.code})</option>)}
+              </select>
+            </Field>
+            <Button type="submit" className="w-full" icon={<Plus className="h-4 w-4" />} loading={add.isPending} disabled={!/[1-9]/.test(form.factor)}>Add conversion</Button>
+          </form>
+        </Card>
+      )}
+    </div>
   );
 }

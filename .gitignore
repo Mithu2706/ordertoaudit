@@ -27,3 +27,7 @@ Thumbs.db
 
 # local PostgreSQL data (scripts/dev_postgres.py)
 .pgdata/
+
+# Playwright output
+frontend/test-results/
+frontend/playwright-report/

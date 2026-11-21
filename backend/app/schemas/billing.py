@@ -163,6 +163,11 @@ class AllocationIn(Schema):
     amount: MoneyIn
 
 
+class PaymentReallocateIn(Schema):
+    allocations: list[AllocationIn] = Field(max_length=100, description="New split; empty = all advance")
+    reason: str = Field(min_length=3, max_length=500)
+
+
 class PaymentReverseIn(Schema):
     reason: str = Field(min_length=3, max_length=500, description="e.g. Cheque 123456 returned: insufficient funds")
     reversal_date: date | None = Field(default=None, description="Default today; not before the receipt date")

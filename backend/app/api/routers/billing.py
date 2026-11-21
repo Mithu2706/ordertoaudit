@@ -25,6 +25,7 @@ from app.schemas.billing import (
     InvoiceSummaryOut,
     OpenInvoiceOut,
     PaymentCreate,
+    PaymentReallocateIn,
     PaymentReverseIn,
     PaymentOut,
     ReceivableOut,
@@ -193,6 +194,14 @@ def record_payment(data: PaymentCreate, db: DbSession, actor: Admin, request: Re
         mode=data.mode, reference_no=data.reference_no, remarks=data.remarks, allocations=allocations,
         actor=actor, ip=client_ip(request))
     return payment_out(db, p)
+
+
+@payments.post("/{payment_id}/reallocate", response_model=PaymentOut)
+def reallocate_payment(payment_id: int, data: PaymentReallocateIn, db: DbSession, actor: Admin, request: Request):
+    """Move a receipt to different invoices of the same customer; the rest stays as an advance."""
+    return payment_out(db, pay_svc.reallocate_payment(
+        db, payment_id, allocations=[(a.invoice_id, a.amount) for a in data.allocations], reason=data.reason,
+        actor=actor, ip=client_ip(request)))
 
 
 @payments.post("/{payment_id}/reverse", response_model=PaymentOut)

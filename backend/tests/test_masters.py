@@ -150,6 +150,10 @@ def test_unit_conversion_rules(client, admin):
     # Cross-dimension only for a specific item.
     assert client.post("/api/unit-conversions", headers=admin,
                        json={"from_unit_code": "PKT", "to_unit_code": "G", "factor": "200"}).status_code == 422
+    # Packing sizes (counted units) differ per product: never global.
+    glob = client.post("/api/unit-conversions", headers=admin,
+                       json={"from_unit_code": "CTN", "to_unit_code": "PKT", "factor": "20"})
+    assert glob.status_code == 422 and "packing size" in glob.json()["error"]["message"]
     # The benchmark carton: 1 CTN = 20 PKT of Murukku.
     res = client.post("/api/unit-conversions", headers=admin,
                       json={"from_unit_code": "ctn", "to_unit_code": "pkt", "factor": "20", "item_id": p["id"]})
